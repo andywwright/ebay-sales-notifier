@@ -21,9 +21,11 @@ use reqwest;
 use std::process::Command;
 
 use oauth2::basic::BasicClient;
-
 use oauth2::reqwest::async_http_client;
-use oauth2::{AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, Scope, TokenResponse, TokenUrl};
+use oauth2::{
+    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken,
+    RefreshToken, Scope, TokenResponse, TokenUrl,
+};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
 use url::Url;
@@ -51,13 +53,13 @@ pub const API_URL: &str = "https://api.ebay.com";
 
 static DB: Lazy<Db> = Lazy::new(|| sled::open("db").expect("Can't open the DB"));
 
-const shop_name: &str = "mobriver";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let shop_name = "mobriver";
 
     let key = ["oauth_token_ebay_", shop_name].concat();
-    let token: Tokens = if let Ok(Some(x)) = DB.get(&key) {
+    let tokens: Tokens = if let Ok(Some(x)) = DB.get(&key) {
         serde_json::from_str(std::str::from_utf8(&x).unwrap()).unwrap()
     } else {
         println!("Getting a eBay user permission for {}", shop_name);
@@ -66,29 +68,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // auth(shop_name).unwrap()
     };
     // let access_token = refresh(token.refresh_token.clone()).unwrap();
-    let access_token = &token.access_token;
-
+    let mut token = tokens.access_token;
     let url = "https://api.ebay.com/developer/analytics/v1_beta/rate_limit/?api_name=Analytics";
-    let client = reqwest::Client::new();
-    let resp = client
-        .get(url)
-        .header("Authorization", ["Bearer ", access_token].concat())
-        .header("Content-Type", "application/json")
-        .send()
-        .await?
-        .text()
-        .await?;
 
-        println!("{}", resp);
+    for i in 1..3 {
+        print!("Checking connection.. ");
+        let reply = get(url, &token)
+            .await?
+            .text()
+            .await?;
 
-    if false {
-        auth().await
+        if !reply.contains("errorId") {
+            println!("OK");
+            break
+        } else {
+            println!("Error: {}", reply);
+            
+            match i {
+                1 => token = refresh(shop_name, &tokens.refresh_token).await?,
+                2 => token = auth(shop_name).await?,
+                _ => println!("Error during token exchagne cycle"),
+            }
+        }
     }
 
     DB.flush()?;
     Ok(())
 }
-async fn auth() {
+
+async fn get(url: &str, token: &str) -> Result<reqwest::Response, reqwest::Error> {
+    let client = reqwest::Client::new();
+    client
+        .get(url)
+        .header("Authorization", ["Bearer ", token].concat())
+        .header("Content-Type", "application/json")
+        .send()
+        .await
+}
+
+
+async fn auth(shop_name:&str) -> Result<String, Box<dyn std::error::Error>> {
+
+    let mut acces_token = String::new();
     
     let auth_url = AuthUrl::new("https://auth.ebay.com/oauth2/authorize".to_string())
         .expect("Invalid authorization endpoint URL");
@@ -97,8 +118,8 @@ async fn auth() {
 
     // Set up the config for the Github OAuth2 process.
     let client = BasicClient::new(
-        ClientId::new((*EBAY_CLIENT_ID).clone()),
-        Some(ClientSecret::new((*EBAY_CLIENT_SECRET).clone())),
+        ClientId::new(EBAY_CLIENT_ID.clone()),
+        Some(ClientSecret::new(EBAY_CLIENT_SECRET.clone())),
         auth_url,
         Some(token_url),
     );
@@ -195,10 +216,49 @@ async fn auth() {
                 let key = ["oauth_token_ebay_", shop_name].concat();
                 DB.insert(&key, serde_json::to_string(&tokens).unwrap().as_bytes())
                     .unwrap();
+                acces_token = token.access_token().secret().clone();
+
             }
             break;
         }
     }
+    Ok(acces_token)
+}
+
+async fn refresh(shop_name: &str, refresh_token: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let auth_url = AuthUrl::new("https://auth.ebay.com/oauth2/authorize".to_string())
+        .expect("Invalid authorization endpoint URL");
+    let token_url = TokenUrl::new("https://api.ebay.com/identity/v1/oauth2/token".to_string())
+        .expect("Invalid token endpoint URL");
+
+    let client = BasicClient::new(ClientId::new(
+        EBAY_CLIENT_ID.clone()), 
+Some(ClientSecret::new(EBAY_CLIENT_SECRET.clone())),
+        auth_url, Some(token_url));
+
+    let res = client
+        .exchange_refresh_token(&RefreshToken::new(refresh_token.to_string()))
+        .add_scope((*EBAY_SCOPE).clone())
+        .request_async(async_http_client)
+        .await;
+
+    // dbg!(&res);
+
+    // if let Ok(token) = res {
+    // обрабатывать если вернул ошибку!!!
+    let token = res.unwrap();
+
+    let tokens = Tokens::new(
+        token.access_token().secret().clone(),
+        token.expires_in().unwrap().as_secs(),
+        refresh_token.to_string(),
+    );
+
+    let key = ["oauth_token_ebay_", shop_name].concat();
+    DB.insert(&key, serde_json::to_string(&tokens).unwrap().as_bytes())
+        .unwrap();
+
+    Ok(token.access_token().secret().clone())
 }
 
 #[derive(Default, Debug, Clone, serde_derive::Serialize, serde_derive::Deserialize)]
@@ -220,23 +280,4 @@ impl Tokens {
             ..Default::default()
         }
     }
-    // pub fn refresh() -> Result<Self, reqwest::Error> {
-    //     let url = Url::parse(&format!("{}/oauth2/token", API_URL)).unwrap();
-    //     let client = Client::builder()
-    //         .timeout(Duration::from_secs(*TIMEOUT))
-    //         .build()
-    //         .unwrap();
-
-    //     let refresh_token = "get_refresh_token()";
-    //     let mut params = HashMap::new();
-    //     params.insert("grant_type", "refresh_token");
-    //     params.insert("client_id", &*EBAY_CLIENT_ID);
-    //     params.insert("client_secret", &*EBAY_CLIENT_SECRET);
-    //     params.insert("refresh_token", &refresh_token);
-    //     let res = client.post(url).form(&params).send()?;
-
-    //     println!("Exchanging the token... {}", res.status());
-    //     let body: Self = res.json()?;
-    //     Ok(body)
-    // }
 }
