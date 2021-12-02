@@ -1,23 +1,9 @@
-// #[tokio::main]
-// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//     // let url = "https://www.sageappliances.com/uk/en/parts-accessories/parts/sp0011389.html";
-//     let url = "https://www.sageappliances.com/uk/en/parts-accessories/parts/sp0023675.html";
-//     let resp = reqwest::get(url)
-//         .await?
-//         .text()
-//         .await?;
-
-//     if resp.contains("Sold out") {
-//         println!("Sold out!!!")
-//     } else {
-//         println!("In stock");
-//     }
-    
-//     Ok(())
-// }
+mod models;
+use models::*;
 
 use reqwest;
 
+use std::collections::HashMap;
 use std::process::Command;
 
 use oauth2::basic::BasicClient;
@@ -33,6 +19,11 @@ use url::Url;
 use once_cell::sync::Lazy;
 use config::Config;
 use sled::Db;
+use chrono::prelude::*;
+
+use tokio::time;
+
+use std::time::Duration;
 
 static CONF: Lazy<Config> = Lazy::new(|| {
     let mut settings = Config::default();
@@ -56,50 +47,90 @@ static DB: Lazy<Db> = Lazy::new(|| sled::open("db").expect("Can't open the DB"))
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let shop_name = "mobriver";
 
-    let key = ["oauth_token_ebay_", shop_name].concat();
-    let tokens: Tokens = if let Ok(Some(x)) = DB.get(&key) {
-        serde_json::from_str(std::str::from_utf8(&x).unwrap()).unwrap()
-    } else {
-        println!("Getting a eBay user permission for {}", shop_name);
-        // auth().await;
-        panic!()
-        // auth(shop_name).unwrap()
-    };
-    // let access_token = refresh(token.refresh_token.clone()).unwrap();
-    let mut token = tokens.access_token;
-    let url = "https://api.ebay.com/developer/analytics/v1_beta/rate_limit/?api_name=Analytics";
+    // let mut interval_day = time::interval(Duration::from_secs(2));
+    // loop {
+    //     let now = interval_day.tick().await;
+    //     println!("Renew sitemaps for each day. (Time now = {:?})", now);
+    // }
 
-    for i in 1..3 {
-        print!("Checking connection.. ");
-        let reply = get(url, &token)
-            .await?
-            .text()
-            .await?;
+    let shops = CONF.get::<Vec<String>>("ebay.shops").unwrap();
 
-        if !reply.contains("errorId") {
-            println!("OK");
-            break
+    for shop_name in &shops {
+        let key = ["oauth_token_ebay_", shop_name].concat();
+        let tokens: Tokens = if let Ok(Some(x)) = DB.get(&key) {
+            serde_json::from_str(std::str::from_utf8(&x).unwrap()).unwrap()
         } else {
-            println!("Error: {}", reply);
-            
-            match i {
-                1 => token = refresh(shop_name, &tokens.refresh_token).await?,
-                2 => token = auth(shop_name).await?,
-                _ => println!("Error during token exchagne cycle"),
+            println!("Getting a eBay user permission for {}", shop_name);
+            auth(shop_name).await?;
+            panic!()
+            // auth(shop_name).unwrap()
+        };
+        // let access_token = refresh(token.refresh_token.clone()).unwrap();
+        let mut token = tokens.access_token;
+        let api_endpoint = "/developer/analytics/v1_beta/rate_limit/?api_name=Analytics";
+    
+        for i in 1..3 {        // перенести эту проверку внутрь get
+            print!("{} - checking connection.. ", shop_name);
+            let reply = get(api_endpoint, &token)
+                .await?
+                .text()
+                .await?;
+            if !reply.contains("errorId") {
+                println!("OK");
+                break
+            } else {
+                println!("Error: {}", reply);
+                match i {
+                    1 => token = refresh(shop_name, &tokens.refresh_token).await?,
+                    2 => token = auth(shop_name).await?,
+                    _ => println!("Error during token exchagne cycle"),
+                }
             }
         }
+        // we should have a token at that point
+
+        let api_endpoint = "/sell/fulfillment/v1/order?filter=orderfulfillmentstatus:%7BNOT_STARTED%7CIN_PROGRESS%7D";
+
+        let reply = get(api_endpoint, &token)
+        .await?
+        .text()
+        .await?;
+
+        let deserializer = &mut serde_json::Deserializer::from_str(&reply);
+        let json: EbayOrders = serde_path_to_error::deserialize(deserializer).unwrap();
+
+        for order in json.orders {
+            let total: f64 = order.pricing_summary.total.value.clone().parse().unwrap_or_default();
+            if total > 20.0 {
+                let bot_url = "https://api.telegram.org/bot863650897:AAE-usx-Av7yk0C1csClrS-nFLgDzVTrNmo/sendMessage?chat_id=-1001451097938&text=";
+                let url = format!("{}£{} from {} for {}", bot_url, total, shop_name, order.line_items[0].title);
+                // reqwest::get(url)
+                //     .await?
+                //     .text()
+                //     .await?;
+                println!("{}", url);
+            }
+        }
+
     }
+
 
     DB.flush()?;
     Ok(())
 }
 
-async fn get(url: &str, token: &str) -> Result<reqwest::Response, reqwest::Error> {
+async fn get(api_endpoint: &str, token: &str) -> Result<reqwest::Response, reqwest::Error> {
+    let mut params: HashMap<&str, String> = HashMap::new();
+    params.insert(
+        "limit",
+        CONF.get::<String>("ebay.limit").unwrap().to_string(),
+    );
+    let url = [API_URL, api_endpoint].concat();
     let client = reqwest::Client::new();
     client
         .get(url)
+        .query(&params)
         .header("Authorization", ["Bearer ", token].concat())
         .header("Content-Type", "application/json")
         .send()

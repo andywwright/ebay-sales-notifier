@@ -2,9 +2,9 @@
   <head>
     <script type="text/javascript">
       const urlParams = new URLSearchParams(window.location.search);
-      const myParam = urlParams.get("aa");
-      alert("Hey " + myParam);
-      window.location.href = "http://example.com";
+      const url = urlParams.get("state");
+      // alert("Hey " + myParam);
+      window.location.href = url + "?" + urlParams;
     </script>
   </head>
   <body>
