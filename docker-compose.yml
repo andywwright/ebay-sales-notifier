@@ -2,22 +2,10 @@ version: '3'
 
 services:
 
-  tb:
+  ebay-sales-notifier:
     build: .
-    env_file:
-      - .env
-    depends_on:
-      - psql
-
-  psql:
-    image: postgres:11
-    restart: always
-    environment:
-      POSTGRES_PASSWORD: lkafghiwshf234
-      POSTGRES_USER: andy
-      POSTGRES_DB: tb
     volumes:
-      - db:/var/lib/postgresql/data
-
+      - db:/ebay-sales-notifier/db
+      
 volumes:
   db:
