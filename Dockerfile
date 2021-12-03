@@ -7,4 +7,4 @@ RUN cargo build-deps --release
 COPY src ./src
 COPY .conf.yaml ./
 RUN cargo build  --release
-CMD ./target/release/ebay-sales-notifier
+CMD ./target/release/checker
