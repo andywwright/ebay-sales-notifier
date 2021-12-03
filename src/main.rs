@@ -25,6 +25,8 @@ use tokio::time;
 
 use std::time::Duration;
 
+use std::collections::HashSet;
+
 static CONF: Lazy<Config> = Lazy::new(|| {
     let mut settings = Config::default();
     settings
@@ -57,6 +59,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let shops = CONF.get::<Vec<String>>("ebay.shops").unwrap();
 
     for shop_name in &shops {
+
+        let mut orders: HashSet<String> = if let Ok(Some(x)) = DB.get("orders") {
+            serde_json::from_str(std::str::from_utf8(&x).unwrap()).unwrap()
+        } else {
+            HashSet::new()
+        };
+
+
         let key = ["oauth_token_ebay_", shop_name].concat();
         let tokens: Tokens = if let Ok(Some(x)) = DB.get(&key) {
             serde_json::from_str(std::str::from_utf8(&x).unwrap()).unwrap()
