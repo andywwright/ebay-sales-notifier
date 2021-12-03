@@ -2,10 +2,10 @@ version: '3'
 
 services:
 
-  ebay-sales-notifier:
+  sn:
     build: .
     volumes:
       - db:/ebay-sales-notifier/db
-      
+
 volumes:
   db:

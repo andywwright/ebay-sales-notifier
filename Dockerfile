@@ -6,4 +6,5 @@ COPY Cargo.toml Cargo.lock ./
 RUN cargo build-deps --release
 COPY src ./src
 COPY .conf.yaml ./
-RUN cargo run  --release
+RUN cargo build  --release
+CMD ./target/release/ebay-sales-notifier
