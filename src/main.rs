@@ -48,7 +48,7 @@ static DB: Lazy<Db> = Lazy::new(|| sled::open("db").expect("Can't open the DB"))
 
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> { // ПЕРЕНЕСТИ ПРОВЕРКУ ВНУТРЬ ГЕТ!!!
 
     let mut interval_day = time::interval(Duration::from_secs(5*60));
     loop {
@@ -119,12 +119,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         println!("New order found: {} £{}", order_id, total);
                         orders.insert(order_id);
 
-                        let bot_url = "https://api.telegram.org/bot863650897:AAE-usx-Av7yk0C1csClrS-nFLgDzVTrNmo/sendMessage?chat_id=-1001451097938&text=";
-                        let url = format!("{}£{} from {} for {}", bot_url, total, shop_name, order.line_items[0].title);
-                        reqwest::get(url)
-                            .await?
-                            .text()
-                            .await?;
+                        if CONF.get::<bool>("send_messages").unwrap() {
+                            let bot_url = "https://api.telegram.org/bot863650897:AAE-usx-Av7yk0C1csClrS-nFLgDzVTrNmo/sendMessage?chat_id=-1001451097938&text=";
+                            let url = format!("{}£{} from {} for {}", bot_url, total, shop_name, order.line_items[0].title);
+                            reqwest::get(url)
+                                .await?
+                                .text()
+                                .await?;
+                        }
                     }
                 }
             }

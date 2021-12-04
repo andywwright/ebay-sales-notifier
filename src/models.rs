@@ -64,15 +64,6 @@ pub enum FallibleReceipt {
     Err(EtsyError),
 }
 
-impl FallibleReceipt {
-    pub fn is_ok(&self) -> bool {
-        match &self {
-            Self::Ok(_) => true,
-            _ => false,
-        }
-    }
-}
-
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
 pub struct EtsyError {
     pub error_messages: Vec<String>,
@@ -685,7 +676,7 @@ pub struct Paging {
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
 pub struct EbayOrders {
-    pub href: String,
+    pub href: Option<String>,
     pub total: i64,
     pub next: Option<String>,
     pub limit: i64,
