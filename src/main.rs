@@ -71,6 +71,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 println!("Getting a eBay user permission for {}", shop_name);
                 auth(shop_name).await?;
+                DB.flush()?;
                 panic!()
                 // auth(shop_name).unwrap()
             };
