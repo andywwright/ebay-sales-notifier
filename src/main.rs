@@ -107,7 +107,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> { // ПЕРЕНЕСТ�
             .await?;
 
             let deserializer = &mut serde_json::Deserializer::from_str(&reply);
-            let json: EbayOrders = serde_path_to_error::deserialize(deserializer).unwrap();
+            let json: EbayOrders = match serde_path_to_error::deserialize(deserializer) {
+                Ok(x) => x,
+                Err(e) =>  {
+                        println!("Deserealisation error: {}\n\nEbay Orders: {}", e, reply);
+                        continue;
+                    },
+            };
+            
+            // {
+            //     println!("{}", err);
+            //     continue;
+            // };
 
             for order in json.orders {
                 let total: f64 = order.pricing_summary.total.value.clone().parse().unwrap_or_default();
