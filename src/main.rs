@@ -79,7 +79,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> { // ПЕРЕНЕСТ�
             let mut token = tokens.access_token;
             let api_endpoint = "/developer/analytics/v1_beta/rate_limit/?api_name=Analytics";
         
-            for i in 1..3 {        // перенести эту проверку внутрь get
+            for i in 1..=3 {        // перенести эту проверку внутрь get
                 print!("{} - checking connection.. ", shop_name);
                 let reply = get(api_endpoint, &token)
                     .await?
