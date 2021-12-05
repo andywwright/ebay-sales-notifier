@@ -154,7 +154,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> { // ПЕРЕНЕСТ�
     // Ok(())
 }
 
-async fn get(api_endpoint: &str, token: &str) -> Result<reqwest::Response, reqwest::Error> {
+async fn get(api_endpoint: &str, token: &str) -> Result<reqwest::Response, reqwest::Error> { // переделать в метод структуры токенс
     let mut params: HashMap<&str, String> = HashMap::new();
     params.insert(
         "limit",
