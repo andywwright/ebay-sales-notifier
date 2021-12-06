@@ -59,33 +59,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             let mut new_orders_found = false;
 
-            let api_endpoint = "/developer/analytics/v1_beta/rate_limit/?api_name=Analytics";
-        
-            for i in 1..=3 {        // перенести эту проверку внутрь get
-                print!("{} - checking connection.. ", shop_name);
-                let reply = web.get(api_endpoint)
-                    .await?
-                    .text()
-                    .await?;
-                if !reply.contains("errorId") {
-                    println!("OK");
-                    break
-                } else {
-                    println!("Error: {}", reply);
-                    match i {
-                        1 => web.refresh().await?,
-                        2 => web.auth(shop_name).await?,
-                        _ => println!("Error during token exchagne cycle"),
-                    }
-                }
-            }
-            // we should have a token at that point
-
             let api_endpoint = "/sell/fulfillment/v1/order?filter=orderfulfillmentstatus:%7BNOT_STARTED%7CIN_PROGRESS%7D";
 
             let reply = web.get(api_endpoint)
-            .await?
-            .text()
             .await?;
 
             let deserializer = &mut serde_json::Deserializer::from_str(&reply);

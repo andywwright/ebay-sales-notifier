@@ -65,21 +65,38 @@ impl Web {
         })
     }
 
-    pub async fn get(&self, api_endpoint: &str) -> Result<reqwest::Response, reqwest::Error> { // переделать в метод структуры токенс
-      let mut params: HashMap<&str, String> = HashMap::new();
-      params.insert( "limit",self.ebay_limit.clone());
-      let url = [API_URL, api_endpoint].concat();
-      let client = reqwest::Client::new();
-      client
-          .get(url)
-          .query(&params)
-          .header("Authorization", ["Bearer ", &self.tokens.access_token].concat())
-          .header("Content-Type", "application/json")
-          .send()
-          .await
-  }
+    pub async fn get(&mut self, api_endpoint: &str) -> Result<String, Box<dyn std::error::Error>> {
+         // переделать в метод структуры токенс
+        let mut reply = String::new();
+        for i in 1..=3 {        // перенести эту проверку внутрь get
+            let mut params: HashMap<&str, String> = HashMap::new();
+            params.insert( "limit",self.ebay_limit.clone());
+            let url = [API_URL, api_endpoint].concat();
+            let client = reqwest::Client::new();
+            reply = client
+                .get(url)
+                .query(&params)
+                .header("Authorization", ["Bearer ", &self.tokens.access_token].concat())
+                .header("Content-Type", "application/json")
+                .send()
+                .await?
+                .text()
+                .await?;
+            if !reply.contains("errorId") {
+                break
+            } else {
+                println!("{}", reply);
+                match i {
+                    1 => self.refresh().await?,
+                    2 => self.auth().await?,
+                    _ => println!("Error during token exchagne cycle"),
+                }
+            }
+        }
+        Ok(reply)
+    }
 
-  pub async fn auth(&mut self, shop_name:&str) -> Result<(), Box<dyn std::error::Error>> {       
+  pub async fn auth(&mut self) -> Result<(), Box<dyn std::error::Error>> {       
 
     // Set up the config for the Github OAuth2 process.
     let client = BasicClient::new(
@@ -95,8 +112,6 @@ impl Web {
         .add_scope(self.ebay_scope.clone())
         .add_extra_param("redirect_uri", &self.ebay_url_sceme)
         .url();
-
-
 
     let url = format!("start {}", authorize_url.to_string()).replace("&", "^&");
 
@@ -178,7 +193,7 @@ impl Web {
                 );
                 dbg!(&tokens);
 
-                let key = ["oauth_token_ebay_", shop_name].concat();
+                let key = ["oauth_token_ebay_", &self.shop_name].concat();
                 DB.insert(&key, serde_json::to_string(&tokens).unwrap().as_bytes())
                     .unwrap();
                 self.tokens.access_token = token.access_token().secret().clone();
