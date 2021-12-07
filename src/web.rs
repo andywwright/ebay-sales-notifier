@@ -85,7 +85,11 @@ impl Web {
             if !reply.contains("errorId") {
                 break
             } else {
-                println!("{}", reply);
+                if reply.contains("Invalid access token") {
+                    println!("Invalid access token")
+                } else {
+                    println!("Reply body: {}", reply);
+                }
                 match i {
                     1 => self.refresh().await?,
                     2 => self.auth().await?,
@@ -206,7 +210,7 @@ impl Web {
 }
 
 pub async fn refresh(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-
+    print!("Refreshing access token... ");
   let client = BasicClient::new(
       self.ebay_client_id.clone(), 
 Some(self.ebay_client_secret.clone()),
@@ -237,7 +241,7 @@ Some(self.token_url.clone()),
       .unwrap();
   
   self.tokens.access_token = token.access_token().secret().clone();
-
+  println!("OK");
   Ok(())
 }
   

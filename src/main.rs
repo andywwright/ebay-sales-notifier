@@ -4,10 +4,8 @@ use models::*;
 use web::*;
 
 use reqwest;
-
 use std::collections::HashMap;
 use std::process::Command;
-
 use oauth2::basic::BasicClient;
 use oauth2::reqwest::async_http_client;
 use oauth2::{
@@ -17,16 +15,12 @@ use oauth2::{
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
 use url::Url;
-
 use once_cell::sync::Lazy;
 use config::Config;
 use sled::Db;
 use chrono::prelude::*;
-
 use tokio::time;
-
 use std::time::Duration;
-
 use std::collections::HashSet;
 
 static CONF: Lazy<Config> = Lazy::new(|| {
@@ -39,10 +33,9 @@ static CONF: Lazy<Config> = Lazy::new(|| {
 
 static DB: Lazy<Db> = Lazy::new(|| sled::open("db").expect("Can't open the DB"));
 
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-
+    let send_messages = CONF.get::<bool>("send_messages").unwrap();
     let mut interval_day = time::interval(Duration::from_secs(5*60));
     loop {
         interval_day.tick().await;
@@ -72,11 +65,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         continue;
                     },
             };
-            
-            // {
-            //     println!("{}", err);
-            //     continue;
-            // };
 
             for order in json.orders {
                 let total: f64 = order.pricing_summary.total.value.clone().parse().unwrap_or_default();
@@ -88,7 +76,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         println!("New order found: {} £{}", order_id, total);
                         orders.insert(order_id);
 
-                        if CONF.get::<bool>("send_messages").unwrap() {
+                        if send_messages {
                             let bot_url = "https://api.telegram.org/bot863650897:AAE-usx-Av7yk0C1csClrS-nFLgDzVTrNmo/sendMessage?chat_id=-1001451097938&text=";
                             let url = format!("{}£{} from {} for {}", bot_url, total, shop_name, order.line_items[0].title);
                             reqwest::get(url)
@@ -99,16 +87,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
             }
-
-            if new_orders_found && CONF.get::<bool>("send_messages").unwrap() {
+            if new_orders_found && send_messages {
                 DB.insert("orders", serde_json::to_string(&orders).unwrap().as_bytes()).unwrap();
             }
-
         }
         DB.flush()?;
-
     }
-
     // Ok(())
 }
 
