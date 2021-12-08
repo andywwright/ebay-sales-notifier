@@ -2,8 +2,6 @@ use crate::*;
 
 // static EBAY_URL_SCHEME: Lazy<String> = Lazy::new(|| CONF.get::<String>("ebay.ru_name").unwrap());
 
-pub const API_URL: &str = "https://api.ebay.com";
-
 #[derive(Default, Debug, Clone, serde_derive::Serialize, serde_derive::Deserialize)]
 pub struct Tokens {
     pub access_token: String,
@@ -66,41 +64,95 @@ impl Web {
     }
 
     pub async fn get(&mut self, api_endpoint: &str) -> Result<String, Box<dyn std::error::Error>> {
-         // переделать в метод структуры токенс
-        let mut reply = String::new();
-        for i in 1..=3 {        // перенести эту проверку внутрь get
-            let mut params: HashMap<&str, String> = HashMap::new();
-            params.insert( "limit",self.ebay_limit.clone());
-            let url = [API_URL, api_endpoint].concat();
-            let client = reqwest::Client::new();
-            reply = client
-                .get(url)
-                .query(&params)
-                .header("Authorization", ["Bearer ", &self.tokens.access_token].concat())
-                .header("Content-Type", "application/json")
-                .send()
-                .await?
-                .text()
-                .await?;
-            if !reply.contains("errorId") {
-                break
-            } else {
-                if reply.contains("Invalid access token") {
-                    println!("Invalid access token")
-                } else {
-                    println!("Reply body: {}", reply);
-                }
-                match i {
-                    1 => self.refresh().await?,
-                    2 => self.auth().await?,
-                    _ => println!("Error during token exchagne cycle"),
-                }
-            }
-        }
-        Ok(reply)
-    }
+        // переделать в метод структуры токенс
+       let mut reply = String::new();
+       for i in 1..=3 {        // перенести эту проверку внутрь get
+           let mut params: HashMap<&str, String> = HashMap::new();
+           params.insert( "limit",self.ebay_limit.clone());
+           let url = [API_URL, api_endpoint].concat();
+           let client = reqwest::Client::new();
+           reply = client
+               .get(url)
+               .query(&params)
+               .header("Authorization", ["Bearer ", &self.tokens.access_token].concat())
+               .header("Content-Type", "application/json")
+               .send()
+               .await?
+               .text()
+               .await?;
+           if !reply.contains("errorId") {
+               break
+           } else {
+               if reply.contains("Invalid access token") {
+                   println!("Invalid access token")
+               } else {
+                   println!("Reply body: {}", reply);
+               }
+               match i {
+                   1 => self.refresh().await?,
+                   2 => self.auth().await?,
+                   _ => println!("Error during token exchagne cycle"),
+               }
+           }
+       }
+       Ok(reply)
+   }
 
-  pub async fn auth(&mut self) -> Result<(), Box<dyn std::error::Error>> {       
+   pub async fn post(&mut self, api_endpoint: &str) -> Result<String, Box<dyn std::error::Error>> {
+
+    let limit = 10;
+
+   let mut reply = String::new();
+   for i in 1..=3 {
+
+    let body = format!(r#"
+<?xml version="1.0" encoding="utf-8"?>
+<GetItemsAwaitingFeedbackRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <Pagination>
+    <EntriesPerPage>{}</EntriesPerPage>
+    <PageNumber>{}</PageNumber>
+  </Pagination>
+<Sort>FeedbackReceivedDescending</Sort>
+</GetItemsAwaitingFeedbackRequest>
+"#, limit, 1);
+
+       let url = [API_URL, api_endpoint].concat();
+    //    let url = "https://andy.requestcatcher.com/test";
+       let client = reqwest::Client::new();
+       reply = client
+           .post(url)
+           .body(body)
+        //    .header("Authorization", ["Bearer ", &self.tokens.access_token].concat())
+           .header("Content-Type", "text/xml")
+           .header("X-EBAY-API-SITEID", "3")
+           .header("X-EBAY-API-COMPATIBILITY-LEVEL", "1225")
+           .header("X-EBAY-API-IAF-TOKEN", &self.tokens.access_token)
+           .header("X-EBAY-API-CALL-NAME", "GetItemsAwaitingFeedback")
+           .send()
+           .await?
+           .text()
+           .await?;
+       if !reply.contains("rrors") {
+           break
+       } else {
+           let a = "Invalid access token";
+           let b = "IAF token supplied is expired";
+
+           if reply.contains(a)         { println!("{}", a) }
+           else if reply.contains(b)    { println!("{}", b) }
+           else                         { println!("Request has failed: {}", reply) }
+
+           match i {
+               1 => self.refresh().await?,
+               2 => self.auth().await?,
+               _ => println!("Error during token exchagne cycle"),
+           }
+       }
+   }
+   Ok(reply)
+}
+
+pub async fn auth(&mut self) -> Result<(), Box<dyn std::error::Error>> {       
 
     // Set up the config for the Github OAuth2 process.
     let client = BasicClient::new(

@@ -1,5 +1,6 @@
 mod models;
 mod web;
+mod feedback;
 use models::*;
 use web::*;
 
@@ -22,6 +23,7 @@ use chrono::prelude::*;
 use tokio::time;
 use std::time::Duration;
 use std::collections::HashSet;
+// use serde_derive::{Serialize, Deserialize};
 
 static CONF: Lazy<Config> = Lazy::new(|| {
     let mut settings = Config::default();
@@ -33,6 +35,8 @@ static CONF: Lazy<Config> = Lazy::new(|| {
 
 static DB: Lazy<Db> = Lazy::new(|| sled::open("db").expect("Can't open the DB"));
 
+pub const API_URL: &str = "https://api.ebay.com";
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let send_messages = CONF.get::<bool>("send_messages").unwrap();
@@ -40,8 +44,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         interval_day.tick().await;
         let shops = CONF.get::<Vec<String>>("ebay.shops").unwrap();
+        let mut i = 0;
 
         for shop_name in &shops {
+
+            if i == 0 {
+                feedback::leave().await?;
+                i = 0;
+            }
+            i += 1;
+
+            return Ok(());
 
             let mut web = Web::new(shop_name).await?; // вынести за пределы цикла
 
@@ -54,12 +67,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let api_endpoint = "/sell/fulfillment/v1/order?filter=orderfulfillmentstatus:%7BNOT_STARTED%7CIN_PROGRESS%7D";
 
-            let reply = web.get(api_endpoint)
-            .await?;
+            let reply = web.get(api_endpoint).await?;
 
             let deserializer = &mut serde_json::Deserializer::from_str(&reply);
             let json: EbayOrders = match serde_path_to_error::deserialize(deserializer) {
-                Ok(x) => x,
+                Ok(json) => json,
                 Err(e) =>  {
                         println!("Deserealisation error: {}\n\nEbay Orders: {}", e, reply);
                         continue;
@@ -95,6 +107,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     // Ok(())
 }
-
 
 
