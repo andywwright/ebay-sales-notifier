@@ -56,7 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             return Ok(());
 
-            let mut web = Web::new(shop_name).await?; // вынести за пределы цикла
+            let mut web = Web::new(shop_name).await?;
 
             let mut orders: HashSet<String> = if let Ok(Some(x)) = DB.get("orders") {
                 serde_json::from_str(std::str::from_utf8(&x).unwrap()).unwrap()

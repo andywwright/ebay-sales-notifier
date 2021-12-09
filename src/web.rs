@@ -39,16 +39,14 @@ pub struct Web {
 impl Web {
     pub async fn new(shop_name:&str) -> Result<Self, Box<dyn std::error::Error>> {
         let key = ["oauth_token_ebay_", shop_name].concat();
-        let tokens: Tokens = if let Ok(Some(x)) = DB.get(&key) {
+        let tokens = if let Ok(Some(x)) = DB.get(&key) {
             serde_json::from_str(std::str::from_utf8(&x).unwrap()).unwrap()
         } else {
-            println!("Getting a eBay user permission for {}", shop_name);
-            // let web = Web::new(shop_name).await?;
-            // web.auth(shop_name).await?;
-            DB.flush()?;
-            panic!()
-            // auth(shop_name).unwrap()
+            println!("No tokens found in the DB for {}", shop_name);
+            Tokens::new(String::new(), 0, String::new())
         };
+
+        // let tokens = Tokens::new(String::new(), 0, String::new());
 
         Ok(Web {
             shop_name: shop_name.to_string(),
@@ -98,36 +96,21 @@ impl Web {
        Ok(reply)
    }
 
-   pub async fn post(&mut self, api_endpoint: &str) -> Result<String, Box<dyn std::error::Error>> {
-
-    let limit = 10;
+   pub async fn post(&mut self, api_endpoint: &str, call_name: &str, body: String) -> Result<String, Box<dyn std::error::Error>> {
 
    let mut reply = String::new();
    for i in 1..=3 {
 
-    let body = format!(r#"
-<?xml version="1.0" encoding="utf-8"?>
-<GetItemsAwaitingFeedbackRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-  <Pagination>
-    <EntriesPerPage>{}</EntriesPerPage>
-    <PageNumber>{}</PageNumber>
-  </Pagination>
-<Sort>FeedbackReceivedDescending</Sort>
-</GetItemsAwaitingFeedbackRequest>
-"#, limit, 1);
-
        let url = [API_URL, api_endpoint].concat();
-    //    let url = "https://andy.requestcatcher.com/test";
        let client = reqwest::Client::new();
        reply = client
            .post(url)
-           .body(body)
-        //    .header("Authorization", ["Bearer ", &self.tokens.access_token].concat())
+           .body(body.clone())
            .header("Content-Type", "text/xml")
            .header("X-EBAY-API-SITEID", "3")
            .header("X-EBAY-API-COMPATIBILITY-LEVEL", "1225")
            .header("X-EBAY-API-IAF-TOKEN", &self.tokens.access_token)
-           .header("X-EBAY-API-CALL-NAME", "GetItemsAwaitingFeedback")
+           .header("X-EBAY-API-CALL-NAME", call_name)
            .send()
            .await?
            .text()
@@ -135,6 +118,7 @@ impl Web {
        if !reply.contains("rrors") {
            break
        } else {
+
            let a = "Invalid access token";
            let b = "IAF token supplied is expired";
 
@@ -169,14 +153,16 @@ pub async fn auth(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         .add_extra_param("redirect_uri", &self.ebay_url_sceme)
         .url();
 
-    let url = format!("start {}", authorize_url.to_string()).replace("&", "^&");
+    // let url = format!("start {}", authorize_url.to_string()).replace("&", "^&");
 
-    let output = Command::new("cmd.exe").args(["/C", &url]).output();
+    // let output = Command::new("cmd.exe").args(["/C", &url]).output();
 
-    if let Err(e) = output {
-        println!("We couldn't start your browser: {:?}\n\n
-        Please start it manually and open this URL:\n{}\n", e, authorize_url.to_string());
-    }
+    // if let Err(e) = output {
+        // println!("We couldn't start your browser: {:?}\n\n
+        // Please start it manually and open this URL:\n{}\n", e, authorize_url.to_string());
+    // }
+
+    println!("Please open this URL:\n{}\n", authorize_url.to_string());
 
     // A very naive implementation of the redirect server.
     let listener = TcpListener::bind("127.0.0.1:8080").await.unwrap();
@@ -280,7 +266,13 @@ Some(self.token_url.clone()),
 
   // if let Ok(token) = res {
   // обрабатывать если вернул ошибку!!!
-  let token = res.unwrap();
+  let token = match res {
+      Ok(x) => x,
+      Err(e) => {
+          println!("Token refresh has failed with following error: {}", e);
+          return Ok(());
+      },
+  };
 
   let tokens = Tokens::new(
       token.access_token().secret().clone(),

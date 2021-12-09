@@ -2,10 +2,12 @@ use crate::*;
 
 use serde::Deserialize;
 use quick_xml::de::{from_str, DeError};
+use rand::seq::SliceRandom;
 
 pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
 
     let shops_for_feedback = CONF.get::<Vec<String>>("shops_for_feedback").unwrap();
+    let comments = ["❤️Fast payment. Perfect! THANKS!❤️", "❤️Fast payment. Excellent buyer! THANKS!❤️"];
 
     for shop_name in shops_for_feedback {
         println!("{}", shop_name);
@@ -13,27 +15,81 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
 
         let mut web = Web::new(&shop_name).await?;
 
-        let reply = web.post(api_endpoint).await?;
+        let limit = 10;
+        let call_name = "GetItemsAwaitingFeedback";
+
+        let body = format!(r#"
+        <?xml version="1.0" encoding="utf-8"?>
+        <{}Request xmlns="urn:ebay:apis:eBLBaseComponents">
+          <Pagination>
+            <EntriesPerPage>{}</EntriesPerPage>
+            <PageNumber>{}</PageNumber>
+          </Pagination>
+        <Sort>FeedbackReceivedDescending</Sort>
+        </GetItemsAwaitingFeedbackRequest>
+        "#, call_name, limit, 1);
+
+        let reply = web.post(api_endpoint, call_name, body).await?;
 
         let xml: GetItemsAwaitingFeedbackResponse = from_str(&reply)?;
 
-        for feedback in xml.items_awaiting_feedback.transaction_array.transaction {
-            if feedback.feedback_received.is_some() && feedback.buyer.is_some() {
-                println!("{:#?}", feedback);
-            }
+        let all_feedback: Vec<Transaction> = xml.items_awaiting_feedback.transaction_array.transaction
+            .into_iter()
+            .filter(|feedback| feedback.feedback_received.is_some() && feedback.buyer.is_some())
+            .collect();
+
+        if all_feedback.is_empty() {
+            println!("There is no feedback to reply to");
+            continue; 
         }
 
-        
+        let positive: Vec<Transaction> = all_feedback
+            .into_iter()
+            .filter(|feedback| 
+                if let Some(x) = &feedback.feedback_received {
+                    x.comment_type == "Positive"
+                } else {
+                    false
+                }
+            )
+            .collect();
+
+        if positive.is_empty() {
+            println!("There is no positive feedback to reply to");
+            continue;
+        }
+
+        let call_name = "LeaveFeedback";
+
+        for feedback in positive {
+            let user_id = feedback.buyer.unwrap_or_default().user_id;
+            let body = format!(r#"
+            <?xml version="1.0" encoding="utf-8"?>
+            <{}Request xmlns="urn:ebay:apis:eBLBaseComponents">
+              <ItemID>{}</ItemID>
+              <TransactionID>{}</TransactionID>
+              <CommentText>{}</CommentText>
+              <TargetUser>{}</TargetUser>
+              <CommentType>Positive</CommentType>
+            </LeaveFeedbackRequest>
+            "#,
+                call_name,
+                feedback.item.item_id,
+                feedback.transaction_id,
+                comments.choose(&mut rand::thread_rng()).unwrap_or_else(|| &"Thanks!"),
+                user_id,
+            );
+            let reply = web.post(api_endpoint, call_name, body).await?;
+            if reply.contains("Success") {
+                println!("{}... OK", user_id);
+            } else {
+                println!("{} - Error! {}", user_id, reply);
+            }
+        }
 
     }
 
     Ok(())
-}
-
-#[derive(Debug, Deserialize, PartialEq)]
-pub struct Welcome8 {
-    #[serde(rename = "GetItemsAwaitingFeedbackResponse")]
-    get_items_awaiting_feedback_response: GetItemsAwaitingFeedbackResponse,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -99,7 +155,7 @@ pub struct Transaction {
     buyer: Option<Buyer>,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Default, Debug, Deserialize, PartialEq)]
 pub struct Buyer {
     #[serde(rename = "UserID")]
     user_id: String,
