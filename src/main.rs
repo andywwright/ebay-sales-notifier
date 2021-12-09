@@ -41,19 +41,17 @@ pub const API_URL: &str = "https://api.ebay.com";
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let send_messages = CONF.get::<bool>("send_messages").unwrap();
     let mut interval_day = time::interval(Duration::from_secs(5*60));
+    let mut i = 0;
     loop {
         interval_day.tick().await;
+
+        if i == 0 { feedback::leave().await? }
+        i += 1;
+        if i == 20 { i = 0 }
+
         let shops = CONF.get::<Vec<String>>("ebay.shops").unwrap();
-        let mut i = 0;
 
         for shop_name in &shops {
-            if i == 0 {
-                feedback::leave().await?;
-            }
-            i += 1;
-            if i == 20 { i = 0; }
-
-            // return Ok(());
 
             let mut web = Web::new(shop_name).await?;
 
