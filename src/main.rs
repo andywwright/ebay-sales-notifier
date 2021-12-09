@@ -47,14 +47,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut i = 0;
 
         for shop_name in &shops {
-
             if i == 0 {
                 feedback::leave().await?;
-                i = 0;
             }
             i += 1;
+            if i == 20 { i = 0; }
 
-            return Ok(());
+            // return Ok(());
 
             let mut web = Web::new(shop_name).await?;
 
