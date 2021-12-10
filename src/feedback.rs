@@ -1,7 +1,7 @@
 use crate::*;
 
 use serde::Deserialize;
-use quick_xml::de::{from_str, DeError};
+use quick_xml::de::{from_str};
 use rand::seq::SliceRandom;
 
 pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
@@ -10,7 +10,6 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
     let comments = ["❤️Fast payment. Perfect! THANKS!❤️", "❤️Fast payment. Excellent buyer! THANKS!❤️"];
 
     for shop_name in shops_for_feedback {
-        println!("{}", shop_name);
         let api_endpoint = "/ws/api.dll";
 
         let mut web = Web::new(&shop_name).await?;
@@ -38,10 +37,7 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
             .filter(|feedback| feedback.feedback_received.is_some() && feedback.buyer.is_some())
             .collect();
 
-        if all_feedback.is_empty() {
-            println!("There is no feedback to reply to");
-            continue; 
-        }
+        if all_feedback.is_empty() { continue }
 
         let positive: Vec<Transaction> = all_feedback
             .into_iter()
@@ -54,10 +50,7 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
             )
             .collect();
 
-        if positive.is_empty() {
-            println!("There is no positive feedback to reply to");
-            continue;
-        }
+        if positive.is_empty() { continue }
 
         let call_name = "LeaveFeedback";
 
@@ -81,7 +74,7 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
             );
             let reply = web.post(api_endpoint, call_name, body).await?;
             if reply.contains("Success") {
-                println!("{}... OK", user_id);
+                println!("{} - {}... OK", shop_name, user_id);
             } else {
                 println!("{} - Error! {}", user_id, reply);
             }

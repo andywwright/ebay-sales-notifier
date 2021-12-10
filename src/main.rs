@@ -6,7 +6,7 @@ use web::*;
 
 use reqwest;
 use std::collections::HashMap;
-use std::process::Command;
+// use std::process::Command;
 use oauth2::basic::BasicClient;
 use oauth2::reqwest::async_http_client;
 use oauth2::{
@@ -42,14 +42,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let send_messages = CONF.get::<bool>("send_messages").unwrap();
     let mut interval_day = time::interval(Duration::from_secs(5*60));
     let mut i = 0;
+    let shops: HashSet<String> = CONF.get::<Vec<String>>("ebay.shops").unwrap().into_iter().collect();
+    let shops_for_feedback: HashSet<String> = CONF.get::<Vec<String>>("shops_for_feedback").unwrap().into_iter().collect();
+    let shops_for_refresh: HashSet<&String> = shops_for_feedback.union(&shops).collect();
+
     loop {
         interval_day.tick().await;
 
-        if i == 0 { feedback::leave().await? }
+        if i == 0 { 
+            feedback::leave().await?;
+            for shop_name in &shops_for_refresh {
+                let mut web = Web::new(shop_name).await?;
+                web.refresh(false).await?;
+            }
+        }
         i += 1;
         if i == 20 { i = 0 }
-
-        let shops = CONF.get::<Vec<String>>("ebay.shops").unwrap();
 
         for shop_name in &shops {
 

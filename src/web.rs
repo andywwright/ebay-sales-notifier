@@ -87,7 +87,7 @@ impl Web {
                    println!("Reply body: {}", reply);
                }
                match i {
-                   1 => self.refresh().await?,
+                   1 => self.refresh(true).await?,
                    2 => self.auth().await?,
                    _ => println!("Error during token exchagne cycle"),
                }
@@ -127,7 +127,7 @@ impl Web {
            else                         { println!("Request has failed: {}", reply) }
 
            match i {
-               1 => self.refresh().await?,
+               1 => self.refresh(true).await?,
                2 => self.auth().await?,
                _ => println!("Error during token exchagne cycle"),
            }
@@ -247,8 +247,8 @@ pub async fn auth(&mut self) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub async fn refresh(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-    print!("Refreshing access token... ");
+pub async fn refresh(&mut self, print: bool) -> Result<(), Box<dyn std::error::Error>> {
+    if print { print!("Refreshing access token... ") };
   let client = BasicClient::new(
       self.ebay_client_id.clone(), 
 Some(self.ebay_client_secret.clone()),
@@ -285,7 +285,7 @@ Some(self.token_url.clone()),
       .unwrap();
   
   self.tokens.access_token = token.access_token().secret().clone();
-  println!("OK");
+  if print { println!("OK") };
   Ok(())
 }
   
