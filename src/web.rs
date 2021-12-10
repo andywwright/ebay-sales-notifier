@@ -122,9 +122,9 @@ impl Web {
            let a = "Invalid access token";
            let b = "IAF token supplied is expired";
 
-           if reply.contains(a)         { println!("{}", a) }
-           else if reply.contains(b)    { println!("{}", b) }
-           else                         { println!("Request has failed: {}", reply) }
+           if reply.contains(a)         { println!("{} - {}", self.shop_name, a) }
+           else if reply.contains(b)    { println!("{} - {}", self.shop_name, b) }
+           else                         { println!("{} - request has failed: {}", self.shop_name, reply) }
 
            match i {
                1 => self.refresh(true).await?,
