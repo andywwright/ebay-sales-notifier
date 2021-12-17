@@ -3,6 +3,7 @@ use crate::*;
 use serde::Deserialize;
 use quick_xml::de::{from_str};
 use rand::seq::SliceRandom;
+use serde_json::Error;
 
 pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
 
@@ -30,8 +31,20 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
 
         let reply = web.post(api_endpoint, call_name, body).await?;
 
-        let xml: GetItemsAwaitingFeedbackResponse = from_str(&reply)?;
 
+
+        let xml: GetItemsAwaitingFeedbackResponse = match from_str(&reply) {
+            Ok(xml) => xml,
+            Err(e) => {
+                println!("{} - Error 263: XML Deserealisation error: {}\n XML body: {}", shop_name, e, reply);
+                return Ok(());
+            },
+        };
+
+
+
+
+        
         let all_feedback: Vec<Transaction> = xml.items_awaiting_feedback.transaction_array.transaction
             .into_iter()
             .filter(|feedback| feedback.feedback_received.is_some() && feedback.buyer.is_some())

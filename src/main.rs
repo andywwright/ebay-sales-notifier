@@ -42,8 +42,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let send_messages = CONF.get::<bool>("send_messages").unwrap();
     let mut interval_day = time::interval(Duration::from_secs(5*60));
     let mut i = 0;
-    let shops: HashSet<String> = CONF.get::<Vec<String>>("ebay.shops").unwrap().into_iter().collect();
-    let shops_for_feedback: HashSet<String> = CONF.get::<Vec<String>>("shops_for_feedback").unwrap().into_iter().collect();
+    let shops = CONF.get::<HashSet<String>>("ebay.shops").unwrap();
+    let shops_for_feedback = CONF.get::<HashSet<String>>("shops_for_feedback").unwrap();
     let shops_for_refresh: HashSet<&String> = shops_for_feedback.union(&shops).collect();
 
     loop {
