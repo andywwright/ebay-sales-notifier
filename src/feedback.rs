@@ -41,7 +41,10 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
             },
         };
 
-        if xml.items_awaiting_feedback.is_none() { continue }
+        if xml.items_awaiting_feedback.is_none() { 
+            println!("{} - No awaiting feedback found", shop_name);
+            continue;
+        }
         
         let all_feedback: Vec<Transaction> = xml.items_awaiting_feedback.unwrap().transaction_array.transaction
             .into_iter()
