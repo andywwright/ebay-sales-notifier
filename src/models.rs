@@ -845,7 +845,7 @@ pub struct FulfillmentStartInstruction {
     #[serde(rename = "maxEstimatedDeliveryDate")]
     pub max_estimated_delivery_date: DateTime<Utc>,
     #[serde(rename = "ebaySupportedFulfillment")]
-    pub ebay_supported_fulfillment: bool,
+    pub ebay_supported_fulfillment: Option<bool>,
     #[serde(rename = "shippingStep")]
     pub shipping_step: ShippingStep,
 }
