@@ -78,7 +78,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let json: EbayOrders = match serde_path_to_error::deserialize(deserializer) {
                 Ok(json) => json,
                 Err(e) =>  {
-                        println!("Deserealisation error: {}\n\nEbay Orders: {}", e, reply);
+                        println!("Deserealisation error: {}\nReply body: ._{}_.", e, reply);
                         continue;
                     },
             };
