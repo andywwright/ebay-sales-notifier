@@ -13,7 +13,7 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
     for shop_name in shops_for_feedback {
         let api_endpoint = "/ws/api.dll";
 
-        let mut web = Web::new(&shop_name).await?;
+        let mut ebay_api = EbayApi::new(&shop_name).await?;
 
         let limit = 10;
         let call_name = "GetItemsAwaitingFeedback";
@@ -29,7 +29,7 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
         </GetItemsAwaitingFeedbackRequest>
         "#, call_name, limit, 1);
 
-        let reply = web.post(api_endpoint, call_name, body).await?;
+        let reply = ebay_api.post(api_endpoint, call_name, body).await?;
 
 
 
@@ -86,7 +86,7 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
                 comments.choose(&mut rand::thread_rng()).unwrap_or_else(|| &"Thanks!"),
                 user_id,
             );
-            let reply = web.post(api_endpoint, call_name, body).await?;
+            let reply = ebay_api.post(api_endpoint, call_name, body).await?;
             if reply.contains("Success") {
                 println!("{} - {}... OK", shop_name, user_id);
             } else {

@@ -1,8 +1,9 @@
 mod models;
-mod web;
+mod ebay_api;
+// mod fagent_api;
 mod feedback;
 use models::*;
-use web::*;
+use ebay_api::*;
 
 use reqwest;
 use std::collections::HashMap;
@@ -40,28 +41,45 @@ pub const API_URL: &str = "https://api.ebay.com";
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let send_messages = CONF.get::<bool>("send_messages").unwrap();
-    let mut interval_day = time::interval(Duration::from_secs(5*60));
+    let mut interval_5_min = time::interval(Duration::from_secs(5*60));
     let mut i = 0;
     let shops = CONF.get::<HashSet<String>>("ebay.shops").unwrap();
     let shops_for_feedback = CONF.get::<HashSet<String>>("shops_for_feedback").unwrap();
     let shops_for_refresh: HashSet<&String> = shops_for_feedback.union(&shops).collect();
 
+        //     // spawn tasks that run in parallel
+        // let tasks: Vec<_> = shops_for_refresh
+        //     .iter()
+        //     .map(|mut shop_name| {
+        //         tokio::spawn(async {
+        //             let mut web = Web::new(shop_name).await.unwrap();
+        //             web.refresh(false)
+        //         })
+        //     })
+        //     .collect();
+        // // now await them to get the resolve's to complete
+        // for task in tasks {
+        //     task.await.unwrap();
+        // }
+
+
     loop {
-        interval_day.tick().await;
+        interval_5_min.tick().await;
 
         if i == 0 { 
             feedback::leave().await?;
             for shop_name in &shops_for_refresh {
-                let mut web = Web::new(shop_name).await?;
-                web.refresh(false).await?;
+                let mut ebay_api = EbayApi::new(shop_name).await?;
+                ebay_api.refresh_access_token(false).await?;
             }
+            println!("+");
         }
         i += 1;
-        if i == 20 { i = 0 }
+        if i == 30 { i = 0 }
 
         for shop_name in &shops {
 
-            let mut web = Web::new(shop_name).await?;
+            let mut ebay_api = EbayApi::new(shop_name).await?;
 
             let mut orders: HashSet<String> = if let Ok(Some(x)) = DB.get("orders") {
                 serde_json::from_str(std::str::from_utf8(&x).unwrap()).unwrap()
@@ -72,7 +90,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let api_endpoint = "/sell/fulfillment/v1/order?filter=orderfulfillmentstatus:%7BNOT_STARTED%7CIN_PROGRESS%7D";
 
-            let reply = web.get(api_endpoint).await?;
+            let reply = ebay_api.get(api_endpoint).await?;
 
             let deserializer = &mut serde_json::Deserializer::from_str(&reply);
             let json: EbayOrders = match serde_path_to_error::deserialize(deserializer) {
