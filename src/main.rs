@@ -42,7 +42,6 @@ pub const API_URL: &str = "https://api.ebay.com";
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let send_messages = CONF.get::<bool>("send_messages").unwrap();
     let mut interval_5_min = time::interval(Duration::from_secs(5*60));
-    let mut i = 0;
     let shops = CONF.get::<HashSet<String>>("ebay.shops").unwrap();
     let shops_for_feedback = CONF.get::<HashSet<String>>("shops_for_feedback").unwrap();
     let shops_for_refresh: HashSet<&String> = shops_for_feedback.union(&shops).collect();
@@ -62,7 +61,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         //     task.await.unwrap();
         // }
 
-
+    let mut i = 0;
+    let mut print_timer = 0;
     loop {
         interval_5_min.tick().await;
 
@@ -72,10 +72,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut ebay_api = EbayApi::new(shop_name).await?;
                 ebay_api.refresh_access_token(false).await?;
             }
-            println!("+");
         }
         i += 1;
         if i == 20 { i = 0 }
+        
+        print_timer += 1;
+        if print_timer == 100 {
+            println!("+");
+            print_timer = 0;
+        }
 
         for shop_name in &shops {
 
