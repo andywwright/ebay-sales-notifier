@@ -75,7 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("+");
         }
         i += 1;
-        if i == 30 { i = 0 }
+        if i == 20 { i = 0 }
 
         for shop_name in &shops {
 
