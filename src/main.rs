@@ -40,7 +40,7 @@ pub const API_URL: &str = "https://api.ebay.com";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let send_messages = CONF.get::<bool>("send_messages").unwrap();
+    let write_orders_and_send_messages = CONF.get::<bool>("send_messages").unwrap();
     let mut interval_5_min = time::interval(Duration::from_secs(5*60));
     let shops = CONF.get::<HashSet<String>>("ebay.shops").unwrap();
     let shops_for_feedback = CONF.get::<HashSet<String>>("shops_for_feedback").unwrap();
@@ -116,7 +116,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         println!("New order found: {} £{}", order_id, total);
                         orders.insert(order_id);
 
-                        if send_messages {
+                        if write_orders_and_send_messages {
                             let bot_url = "https://api.telegram.org/bot863650897:AAE-usx-Av7yk0C1csClrS-nFLgDzVTrNmo/sendMessage?chat_id=-1001451097938&text=";
                             let url = format!("{}£{} from {} for {}", bot_url, total, shop_name, order.line_items[0].title);
                             reqwest::get(url)
@@ -127,7 +127,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
             }
-            if new_orders_found && send_messages {
+            if new_orders_found && write_orders_and_send_messages {
                 DB.insert("orders", serde_json::to_string(&orders).unwrap().as_bytes()).unwrap();
             }
         }

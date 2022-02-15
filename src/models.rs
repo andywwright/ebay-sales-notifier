@@ -874,7 +874,7 @@ pub struct ShipTo {
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
 pub struct ContactAddress {
     #[serde(rename = "addressLine1")]
-    pub address_line1: String,
+    pub address_line1: Option<String>,
     #[serde(rename = "addressLine2")]
     pub address_line2: Option<String>,
     pub city: Option<String>,
@@ -916,7 +916,7 @@ pub struct LineItem {
     #[serde(rename = "appliedPromotions")]
     pub applied_promotions: Vec<::serde_json::Value>,
     pub taxes: Vec<::serde_json::Value>,
-    pub properties: Properties,
+    pub properties: Option<Properties>,
     #[serde(rename = "lineItemFulfillmentInstructions")]
     pub line_item_fulfillment_instructions: LineItemFulfillmentInstructions,
 }
