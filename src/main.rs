@@ -43,88 +43,11 @@ pub const EBAY_API_URL: &str = "https://api.ebay.com";
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let debug = CONF.get::<bool>("debug").unwrap();
     if debug {
-        // println!("Running in DEBUG mode");
+        println!("Running in DEBUG mode");
 
-        let mut fagent_api = FagentApi::new().await?;
+        create_bank_transactions().await?;
 
-        // let reply = fagent_api.get("categories").await?;
-
-        let api_endpoint = format!("bank_transaction_explanations");
-
-        let date = Utc::today().format("%Y-%m-%d");
-
-        struct BankTransaction {
-            account: i32,
-            description: &'static str,
-            category: &'static str,
-            gross_value: i32,
-        }
-
-        let transactions = [
-            BankTransaction {
-                account: 1030038,
-                description: "Amazon sales",
-                category: "002",
-                gross_value: 100,
-            },
-            BankTransaction {
-                account: 1030038,
-                description: "Amazon fees",
-                category: "160",
-                gross_value: -33,
-            },
-            BankTransaction {
-                account: 1030344,
-                description: "Ebay sales Mobriver",
-                category: "003",
-                gross_value: 100,
-            },
-            BankTransaction {
-                account: 1030344,
-                description: "Ebay fees",
-                category: "161",
-                gross_value: -33,
-            },
-            BankTransaction {
-                account: 1030351,
-                description: "Ebay sales Spasimira",
-                category: "004",
-                gross_value: 100,
-            },
-            BankTransaction {
-                account: 1030351,
-                description: "Ebay fees",
-                category: "161",
-                gross_value: -33,
-            },
-        ];
-
-        for t in transactions {
-            let body = format!(
-                r#"
-                {{ "bank_transaction_explanation":
-                    {{
-                        "bank_account":"https://api.freeagent.com/v2/bank_accounts/{}",
-                        "dated_on":"{date}",
-                        "description":"{}",
-                        "category":"https://api.freeagent.com/v2/categories/{}",
-                        "gross_value":"{}"
-                    }}
-                }}
-            "#,
-                t.account, t.description, t.category, t.gross_value
-            );
-            // let reply = fagent_api.post(&api_endpoint, body).await?;
-            // println!("{reply}");
-        }
-
-        // return Ok(());
-
-        // let reply = fagent_api.post(&api_endpoint, body).await?;
-
-        // println!("{reply}");
-
-        // println!("Exiting... OK");
+        println!("Exiting... OK");
         return Ok(());
     }
 
