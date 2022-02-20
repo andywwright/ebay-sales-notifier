@@ -1,14 +1,16 @@
 use crate::*;
 
-use serde::Deserialize;
-use quick_xml::de::{from_str};
+use quick_xml::de::from_str;
 use rand::seq::SliceRandom;
+use serde::Deserialize;
 // use serde_json::Error;
 
 pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
-
     let shops_for_feedback = CONF.get::<Vec<String>>("shops_for_feedback").unwrap();
-    let comments = ["❤️Fast payment. Perfect! THANKS!❤️", "❤️Fast payment. Excellent buyer! THANKS!❤️"];
+    let comments = [
+        "❤️Fast payment. Perfect! THANKS!❤️",
+        "❤️Fast payment. Excellent buyer! THANKS!❤️",
+    ];
 
     for shop_name in shops_for_feedback {
         let api_endpoint = "/ws/api.dll";
@@ -18,7 +20,8 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
         let limit = 10;
         let call_name = "GetItemsAwaitingFeedback";
 
-        let body = format!(r#"
+        let body = format!(
+            r#"
         <?xml version="1.0" encoding="utf-8"?>
         <{}Request xmlns="urn:ebay:apis:eBLBaseComponents">
           <Pagination>
@@ -27,50 +30,62 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
           </Pagination>
         <Sort>FeedbackReceivedDescending</Sort>
         </GetItemsAwaitingFeedbackRequest>
-        "#, call_name, limit, 1);
+        "#,
+            call_name, limit, 1
+        );
 
         let reply = ebay_api.post(api_endpoint, call_name, body).await?;
-
-
 
         let xml: GetItemsAwaitingFeedbackResponse = match from_str(&reply) {
             Ok(xml) => xml,
             Err(e) => {
-                println!("{} - Error 263: XML Deserealisation error: {}\nXML body: {}", shop_name, e, reply);
+                println!(
+                    "{} - Error 263: XML Deserealisation error: {}\nXML body: {}",
+                    shop_name, e, reply
+                );
                 return Ok(());
-            },
+            }
         };
 
-        if xml.items_awaiting_feedback.is_none() { 
+        if xml.items_awaiting_feedback.is_none() {
             println!("{} - No awaiting feedback found", shop_name);
             continue;
         }
-        
-        let all_feedback: Vec<Transaction> = xml.items_awaiting_feedback.unwrap().transaction_array.transaction
+
+        let all_feedback: Vec<Transaction> = xml
+            .items_awaiting_feedback
+            .unwrap()
+            .transaction_array
+            .transaction
             .into_iter()
             .filter(|feedback| feedback.feedback_received.is_some() && feedback.buyer.is_some())
             .collect();
 
-        if all_feedback.is_empty() { continue }
+        if all_feedback.is_empty() {
+            continue;
+        }
 
         let positive: Vec<Transaction> = all_feedback
             .into_iter()
-            .filter(|feedback| 
+            .filter(|feedback| {
                 if let Some(x) = &feedback.feedback_received {
                     x.comment_type == "Positive"
                 } else {
                     false
                 }
-            )
+            })
             .collect();
 
-        if positive.is_empty() { continue }
+        if positive.is_empty() {
+            continue;
+        }
 
         let call_name = "LeaveFeedback";
 
         for feedback in positive {
             let user_id = feedback.buyer.unwrap_or_default().user_id;
-            let body = format!(r#"
+            let body = format!(
+                r#"
             <?xml version="1.0" encoding="utf-8"?>
             <{}Request xmlns="urn:ebay:apis:eBLBaseComponents">
               <ItemID>{}</ItemID>
@@ -83,7 +98,9 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
                 call_name,
                 feedback.item.item_id,
                 feedback.transaction_id,
-                comments.choose(&mut rand::thread_rng()).unwrap_or_else(|| &"Thanks!"),
+                comments
+                    .choose(&mut rand::thread_rng())
+                    .unwrap_or_else(|| &"Thanks!"),
                 user_id,
             );
             let reply = ebay_api.post(api_endpoint, call_name, body).await?;
@@ -93,7 +110,6 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
                 println!("{} - Error! {}", user_id, reply);
             }
         }
-
     }
 
     Ok(())
@@ -115,7 +131,6 @@ pub struct GetItemsAwaitingFeedbackResponse {
 
     #[serde(rename = "ItemsAwaitingFeedback")]
     items_awaiting_feedback: Option<ItemsAwaitingFeedback>,
-
     // #[serde(rename = "_xmlns")]
     // xmlns: String,
 }
@@ -189,10 +204,10 @@ pub struct Item {
     title: String,
 
     #[serde(rename = "ConditionID")]
-    condition_id: String,
+    condition_id: Option<String>,
 
     #[serde(rename = "ConditionDisplayName")]
-    condition_display_name: String,
+    condition_display_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
