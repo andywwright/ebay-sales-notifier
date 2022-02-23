@@ -117,7 +117,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     continue;
                 }
             };
-
             for order in json.orders {
                 let total: f64 = order
                     .pricing_summary
@@ -131,15 +130,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                     if !orders.contains(&order_id) {
                         new_orders_found = true;
-                        println!("New order found: {} £{}", order_id, total);
+                        let item = &order.line_items[0].title;
+                        println!("{shop_name} - £{total} for {item}");
                         orders.insert(order_id);
 
                         if write_orders_and_send_messages {
                             let bot_url = "https://api.telegram.org/bot863650897:AAE-usx-Av7yk0C1csClrS-nFLgDzVTrNmo/sendMessage?chat_id=-1001451097938&text=";
-                            let url = format!(
-                                "{}£{} from {} for {}",
-                                bot_url, total, shop_name, order.line_items[0].title
-                            );
+                            let url = format!("{bot_url}£{total} from {shop_name} for {item}");
                             reqwest::get(url).await?.text().await?;
                         }
                     }
