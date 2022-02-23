@@ -883,7 +883,7 @@ pub struct ContactAddress {
     #[serde(rename = "postalCode")]
     pub postal_code: Option<String>,
     #[serde(rename = "countryCode")]
-    pub country_code: String,
+    pub country_code: Option<String>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
