@@ -136,7 +136,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         if write_orders_and_send_messages {
                             let bot_url = "https://api.telegram.org/bot863650897:AAE-usx-Av7yk0C1csClrS-nFLgDzVTrNmo/sendMessage?chat_id=-1001451097938&text=";
-                            let url = format!("{bot_url}£{total} from {shop_name} for {item}");
+                            let url = format!("{bot_url}{shop_name} - £{total} for {item}");
                             reqwest::get(url).await?.text().await?;
                         }
                     }
