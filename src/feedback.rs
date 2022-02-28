@@ -3,6 +3,7 @@ use crate::*;
 use quick_xml::de::from_str;
 use rand::seq::SliceRandom;
 use serde::Deserialize;
+// use sled::transaction;
 // use serde_json::Error;
 
 pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
@@ -47,15 +48,33 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
-        if xml.items_awaiting_feedback.is_none() {
-            println!("{} - No awaiting feedback found", shop_name);
-            continue;
-        }
+        let items_awaiting_feedback = match xml.items_awaiting_feedback {
+            Some(t) => t,
+            None => {
+                println!(
+                    "{shop_name} - No awaiting feedback found as items_awaiting_feedback is null"
+                );
+                continue;
+            }
+        };
 
-        let all_feedback: Vec<Transaction> = xml
-            .items_awaiting_feedback
-            .unwrap()
-            .transaction_array
+        // let i = items_awaiting_feedback
+        //     .pagination_result
+        //     .total_number_of_entries;
+
+        // println!(
+        //     "items_awaiting_feedback.pagination_result.total_number_of_entries: {shop_name} - {i}"
+        // );
+
+        let transaction_array = match items_awaiting_feedback.transaction_array {
+            Some(t) => t,
+            None => {
+                println!("{shop_name} - No awaiting feedback found as transaction_array is empty");
+                continue;
+            }
+        };
+
+        let all_feedback: Vec<Transaction> = transaction_array
             .transaction
             .into_iter()
             .filter(|feedback| feedback.feedback_received.is_some() && feedback.buyer.is_some())
@@ -138,7 +157,7 @@ pub struct GetItemsAwaitingFeedbackResponse {
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct ItemsAwaitingFeedback {
     #[serde(rename = "TransactionArray")]
-    transaction_array: TransactionArray,
+    transaction_array: Option<TransactionArray>,
 
     #[serde(rename = "PaginationResult")]
     pagination_result: PaginationResult,
@@ -150,7 +169,7 @@ pub struct PaginationResult {
     total_number_of_pages: String,
 
     #[serde(rename = "TotalNumberOfEntries")]
-    total_number_of_entries: String,
+    total_number_of_entries: i32,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]

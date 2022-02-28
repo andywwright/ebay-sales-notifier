@@ -863,7 +863,7 @@ pub struct ShippingStep {
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
 pub struct ShipTo {
     #[serde(rename = "fullName")]
-    pub full_name: String,
+    pub full_name: Option<String>,
     #[serde(rename = "contactAddress")]
     pub contact_address: ContactAddress,
     #[serde(rename = "primaryPhone")]
