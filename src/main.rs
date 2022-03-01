@@ -113,7 +113,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let json: EbayOrders = match serde_path_to_error::deserialize(deserializer) {
                 Ok(json) => json,
                 Err(e) => {
-                    println!("Deserealisation error: {}\nReply body: ._{}_.", e, reply);
+                    println!("EbayOrders - deserealisation error: {e}\nReply body: ###{reply}###");
                     continue;
                 }
             };
@@ -136,7 +136,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         if write_orders_and_send_messages {
                             let bot_url = "https://api.telegram.org/bot863650897:AAE-usx-Av7yk0C1csClrS-nFLgDzVTrNmo/sendMessage?chat_id=-1001451097938&text=";
-                            let url = format!("{bot_url}{shop_name} - £{total} for {item}");
+                            let url = format!("{bot_url}£{total} - {shop_name} - {item}");
                             reqwest::get(url).await?.text().await?;
                         }
                     }
