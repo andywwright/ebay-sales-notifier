@@ -131,12 +131,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if !orders.contains(&order_id) {
                         new_orders_found = true;
                         let item = &order.line_items[0].title;
-                        println!("{shop_name} - £{total} for {item}");
+                        let msg = format!("£{total} - {shop_name} - {item}");
+                        println!("{msg}");
                         orders.insert(order_id);
 
                         if write_orders_and_send_messages {
-                            let bot_url = "https://api.telegram.org/bot863650897:AAE-usx-Av7yk0C1csClrS-nFLgDzVTrNmo/sendMessage?chat_id=-1001451097938&text=";
-                            let url = format!("{bot_url}£{total} - {shop_name} - {item}");
+                            let url = format!("https://api.telegram.org/bot863650897:AAE-usx-Av7yk0C1csClrS-nFLgDzVTrNmo/sendMessage?chat_id=-1001451097938&text={msg}");
                             reqwest::get(url).await?.text().await?;
                         }
                     }
