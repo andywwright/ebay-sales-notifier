@@ -49,6 +49,10 @@ pub enum LocalError {
     EbaySystemError,
     #[error("eBay server returned unknown error: `{0}`")]
     EbayUnknownError(String),
+    #[error("Invalid item number or invalid transaction or feedback already left")]
+    EbayFeedbackAlreadyLeft,
+    #[error("eBay server returned unknown error: `{0}`")]
+    EbayFeedbackUnknownError(String),
 }
 
 #[tokio::main]

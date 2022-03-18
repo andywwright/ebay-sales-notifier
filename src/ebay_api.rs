@@ -129,22 +129,19 @@ impl EbayApi {
                 break;
             } else {
                 let a = "Invalid access token";
-                let b = "IAF token supplied is expired";
-                let mut bad_token = true;
 
-                if reply.contains(a) {
-                    println!("{} - {}", self.shop_name, a)
-                } else if reply.contains(b) {
-                    println!("{} - {}", self.shop_name, b)
-                } else {
-                    println!("{} - request has failed: {}", self.shop_name, reply);
-                    bad_token = false;
-                }
-                if bad_token {
+                if reply.contains(a) || reply.contains("IAF token supplied is expired") {
+                    println!("{} - {}", self.shop_name, a);
                     match i {
                         1 => self.refresh_access_token(true).await?,
                         2 => self.auth().await?,
                         _ => println!("Error during token exchagne cycle"),
+                    }
+                } else {
+                    if reply.contains("or feedback already left") {
+                        return Err(LocalError::EbayFeedbackAlreadyLeft)?;
+                    } else {
+                        return Err(LocalError::EbayFeedbackUnknownError(reply))?;
                     }
                 }
             }

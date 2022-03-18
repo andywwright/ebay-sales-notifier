@@ -35,22 +35,30 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
             call_name, limit, 1
         );
 
-        let reply = ebay_api.post(api_endpoint, call_name, body).await?;
+        let reply = match ebay_api.post(api_endpoint, call_name, body).await {
+            Ok(x) => x,
+            Err(e) => {
+                println!("{shop_name} - GetItemsAwaitingFeedback failed: {e}");
+                continue;
+            }
+        };
 
         let xml: GetItemsAwaitingFeedbackResponse = match from_str(&reply) {
             Ok(xml) => xml,
             Err(e) => {
                 println!(
-                    "{} - Error 263: XML Deserealisation error: {}\nXML body: {}",
+                    "{} - GetItemsAwaitingFeedback XML Deserealisation error: {}\n\nXML body: {}\n",
                     shop_name, e, reply
                 );
-                return Ok(());
+                continue;
             }
         };
 
-        let items_awaiting_feedback = if let Some(t) = xml.items_awaiting_feedback { t } else {
-                println!("{shop_name} - No awaiting feedback found as items_awaiting_feedback is null");
-                continue;
+        let items_awaiting_feedback = if let Some(t) = xml.items_awaiting_feedback {
+            t
+        } else {
+            println!("{shop_name} - No awaiting feedback found as items_awaiting_feedback is null");
+            continue;
         };
 
         // let i = items_awaiting_feedback
@@ -61,9 +69,11 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
         //     "items_awaiting_feedback.pagination_result.total_number_of_entries: {shop_name} - {i}"
         // );
 
-        let transaction_array = if let Some(t) = items_awaiting_feedback.transaction_array { t } else {
-                println!("{shop_name} - No awaiting feedback found as transaction_array is empty");
-                continue;
+        let transaction_array = if let Some(t) = items_awaiting_feedback.transaction_array {
+            t
+        } else {
+            println!("{shop_name} - No awaiting feedback found as transaction_array is empty");
+            continue;
         };
 
         let all_feedback: Vec<Transaction> = transaction_array
@@ -114,7 +124,15 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
                     .unwrap_or_else(|| &"Thanks!"),
                 user_id,
             );
-            let reply = ebay_api.post(api_endpoint, call_name, body).await?;
+
+            let reply = match ebay_api.post(api_endpoint, call_name, body).await {
+                Ok(x) => x,
+                Err(e) => {
+                    println!("{shop_name} - LeaveFeedback failed: {e}");
+                    continue;
+                }
+            };
+
             if reply.contains("Success") {
                 println!("{} - {}... OK", shop_name, user_id);
             } else {
