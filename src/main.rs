@@ -110,6 +110,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let reply = if let Ok(x) = ebay_api.get(api_endpoint).await {
                 x
             } else {
+                println!("{shop_name} - orders processing has been interrupted because of the error above");
                 continue;
             };
 
