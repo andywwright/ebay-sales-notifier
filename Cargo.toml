@@ -20,3 +20,4 @@ serde_path_to_error = "0.1.4"
 chrono = { version = "0.4", features = ["serde"] }
 quick-xml = { version = "0.22", features = ["serialize"] }
 rand = "0.8.3"
+thiserror = "1.0.24"
