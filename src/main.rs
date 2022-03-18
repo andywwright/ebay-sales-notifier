@@ -21,10 +21,12 @@ use once_cell::sync::Lazy;
 use sled::Db;
 use std::collections::HashSet;
 use std::time::Duration;
+use thiserror::Error;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
 use tokio::time;
 use url::Url;
+
 // use serde_derive::{Serialize, Deserialize};
 
 static CONF: Lazy<Config> = Lazy::new(|| {
@@ -39,6 +41,16 @@ static DB: Lazy<Db> = Lazy::new(|| sled::open("db").expect("Can't open the DB"))
 
 pub const EBAY_API_URL: &str = "https://api.ebay.com";
 
+#[derive(Error, Debug)]
+pub enum LocalError {
+    #[error("Error during token exchagne cycle")]
+    EbayTokenError,
+    #[error("eBay server message: 'System error'")]
+    EbaySystemError,
+    #[error("eBay server returned unknown error: `{0}`")]
+    EbayUnknownError(String),
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let debug = CONF.get::<bool>("debug").unwrap();
@@ -50,7 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Exiting... OK");
         return Ok(());
     }
-
+    println!("+");
     let write_orders_and_send_messages = CONF.get::<bool>("send_messages").unwrap();
     let mut interval_5_min = time::interval(Duration::from_secs(5 * 60));
     let shops = CONF.get::<HashSet<String>>("ebay.shops").unwrap();
@@ -107,18 +119,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let api_endpoint = "/sell/fulfillment/v1/order?filter=orderfulfillmentstatus:%7BNOT_STARTED%7CIN_PROGRESS%7D";
 
-            let reply = if let Ok(x) = ebay_api.get(api_endpoint).await {
-                x
-            } else {
-                println!("{shop_name} - orders processing has been interrupted because of the error above");
-                continue;
+            let reply = match ebay_api.get(api_endpoint).await {
+                // найти как развернуть ошибку без матч
+                Ok(x) => x,
+                Err(e) => {
+                    println!("{shop_name} - orders processing has failed - {e}");
+                    continue;
+                }
             };
 
             let deserializer = &mut serde_json::Deserializer::from_str(&reply);
             let json: EbayOrders = match serde_path_to_error::deserialize(deserializer) {
-                Ok(json) => json,
+                Ok(x) => x,
                 Err(e) => {
-                    println!("EbayOrders - deserealisation error: {e}\nReply body: ###{reply}###");
+                    println!("{shop_name} - orders processing has failed - deserealisation error: {e}\n\nReply body: ###{reply}###\n");
                     continue;
                 }
             };

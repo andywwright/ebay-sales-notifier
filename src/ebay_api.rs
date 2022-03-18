@@ -86,20 +86,16 @@ impl EbayApi {
                 break;
             } else {
                 if reply.contains("System error") {
-                    println!("ebay_api.get - eBay's server returned 'System error'");
-                    // break;
-                    return Err("oh noooo!")?;
-                }
-                if reply.contains("Invalid access token") {
-                    println!("Invalid access token")
+                    return Err(LocalError::EbaySystemError)?;
+                } else if reply.contains("Invalid access token") {
+                    println!("Invalid access token");
+                    match i {
+                        1 => self.refresh_access_token(true).await?,
+                        2 => self.auth().await?,
+                        _ => return Err(LocalError::EbayTokenError)?,
+                    }
                 } else {
-                    println!("ebay_api.get - eBay server returned {reply}");
-                }
-
-                match i {
-                    1 => self.refresh_access_token(true).await?,
-                    2 => self.auth().await?,
-                    _ => println!("Error during token exchagne cycle"),
+                    return Err(LocalError::EbayUnknownError(reply))?;
                 }
             }
         }
@@ -107,6 +103,7 @@ impl EbayApi {
     }
 
     pub async fn post(
+        // переделать чтобы возвращал ошибки
         &mut self,
         api_endpoint: &str,
         call_name: &str,
