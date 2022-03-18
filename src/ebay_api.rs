@@ -85,14 +85,17 @@ impl EbayApi {
             if !reply.contains("errorId") {
                 break;
             } else {
+                if reply.contains("System error") {
+                    println!("ebay_api.get - eBay's server returned 'System error'");
+                    // break;
+                    return Err("oh noooo!")?;
+                }
                 if reply.contains("Invalid access token") {
                     println!("Invalid access token")
                 } else {
-                    println!("ebay_api.get has returned error: {}", reply);
+                    println!("ebay_api.get - eBay server returned {reply}");
                 }
-                if reply.contains("System error") {
-                    break;
-                }
+
                 match i {
                     1 => self.refresh_access_token(true).await?,
                     2 => self.auth().await?,

@@ -48,14 +48,9 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
-        let items_awaiting_feedback = match xml.items_awaiting_feedback {
-            Some(t) => t,
-            None => {
-                println!(
-                    "{shop_name} - No awaiting feedback found as items_awaiting_feedback is null"
-                );
+        let items_awaiting_feedback = if let Some(t) = xml.items_awaiting_feedback { t } else {
+                println!("{shop_name} - No awaiting feedback found as items_awaiting_feedback is null");
                 continue;
-            }
         };
 
         // let i = items_awaiting_feedback
@@ -66,12 +61,9 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
         //     "items_awaiting_feedback.pagination_result.total_number_of_entries: {shop_name} - {i}"
         // );
 
-        let transaction_array = match items_awaiting_feedback.transaction_array {
-            Some(t) => t,
-            None => {
+        let transaction_array = if let Some(t) = items_awaiting_feedback.transaction_array { t } else {
                 println!("{shop_name} - No awaiting feedback found as transaction_array is empty");
                 continue;
-            }
         };
 
         let all_feedback: Vec<Transaction> = transaction_array

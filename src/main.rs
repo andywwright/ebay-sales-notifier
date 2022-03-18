@@ -107,7 +107,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let api_endpoint = "/sell/fulfillment/v1/order?filter=orderfulfillmentstatus:%7BNOT_STARTED%7CIN_PROGRESS%7D";
 
-            let reply = ebay_api.get(api_endpoint).await?;
+            let reply = if let Ok(x) = ebay_api.get(api_endpoint).await {
+                x
+            } else {
+                continue;
+            };
 
             let deserializer = &mut serde_json::Deserializer::from_str(&reply);
             let json: EbayOrders = match serde_path_to_error::deserialize(deserializer) {
