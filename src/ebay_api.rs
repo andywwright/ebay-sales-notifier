@@ -40,7 +40,7 @@ impl EbayApi {
     pub async fn new(shop_name: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let key = ["oauth_token_ebay_", shop_name].concat();
         let tokens = if let Ok(Some(x)) = DB.get(&key) {
-            serde_json::from_str(std::str::from_utf8(&x).unwrap()).unwrap()
+            serde_json::from_str(std::str::from_utf8(&x)?)?
         } else {
             println!("No tokens found in the DB for {}", shop_name);
             Tokens::new(String::new(), 0, String::new())
@@ -53,11 +53,11 @@ impl EbayApi {
             tokens,
             auth_url: AuthUrl::new("https://auth.ebay.com/oauth2/authorize".to_string())?,
             token_url: TokenUrl::new("https://api.ebay.com/identity/v1/oauth2/token".to_string())?,
-            client_id: ClientId::new(CONF.get::<String>("ebay.client_id").unwrap()),
-            client_secret: ClientSecret::new(CONF.get::<String>("ebay.client_secret").unwrap()),
+            client_id: ClientId::new(CONF.get::<String>("ebay.client_id")?),
+            client_secret: ClientSecret::new(CONF.get::<String>("ebay.client_secret")?),
             scope: Scope::new("https://api.ebay.com/oauth/api_scope/sell.fulfillment https://api.ebay.com/oauth/api_scope".to_string()),
-            url_sceme: CONF.get::<String>("ebay.ru_name").unwrap(),
-            limit: CONF.get::<String>("ebay.limit").unwrap().to_string(),
+            url_sceme: CONF.get::<String>("ebay.ru_name")?,
+            limit: CONF.get::<String>("ebay.limit")?.to_string(),
         })
     }
 
@@ -82,18 +82,17 @@ impl EbayApi {
                 .await?
                 .text()
                 .await?;
-            if !reply.contains("errorId") {
-                break;
-            } else {
-                if reply.contains("System error") {
-                    return Err(LocalError::EbaySystemError)?;
-                } else if reply.contains("Invalid access token") {
-                    println!("Invalid access token");
+            if reply.contains("errorId") {
+                let x = "Invalid access token";
+                if reply.contains(x) {
+                    println!("{x}");
                     match i {
                         1 => self.refresh_access_token(true).await?,
                         2 => self.auth().await?,
                         _ => return Err(LocalError::EbayTokenError)?,
                     }
+                } else if reply.contains("System error") {
+                    return Err(LocalError::EbaySystemError)?;
                 } else {
                     return Err(LocalError::EbayUnknownError(reply))?;
                 }
@@ -125,9 +124,7 @@ impl EbayApi {
                 .await?
                 .text()
                 .await?;
-            if !reply.contains("rrors") {
-                break;
-            } else {
+            if reply.contains("rrors") {
                 let a = "Invalid access token";
 
                 if reply.contains(a) || reply.contains("IAF token supplied is expired") {
@@ -135,14 +132,12 @@ impl EbayApi {
                     match i {
                         1 => self.refresh_access_token(true).await?,
                         2 => self.auth().await?,
-                        _ => println!("Error during token exchagne cycle"),
+                        _ => return Err(LocalError::EbayTokenError)?,
                     }
+                } else if reply.contains("or feedback already left") {
+                    return Err(LocalError::EbayFeedbackAlreadyLeft)?;
                 } else {
-                    if reply.contains("or feedback already left") {
-                        return Err(LocalError::EbayFeedbackAlreadyLeft)?;
-                    } else {
-                        return Err(LocalError::EbayFeedbackUnknownError(reply))?;
-                    }
+                    return Err(LocalError::EbayFeedbackUnknownError(reply))?;
                 }
             }
         }
@@ -177,7 +172,7 @@ impl EbayApi {
         println!("Please open this URL:\n{}\n", authorize_url.to_string());
 
         // A very naive implementation of the redirect server.
-        let listener = TcpListener::bind("127.0.0.1:8080").await.unwrap();
+        let listener = TcpListener::bind("127.0.0.1:8080").await?;
         loop {
             if let Ok((mut stream, _)) = listener.accept().await {
                 let code;
@@ -186,10 +181,10 @@ impl EbayApi {
                     let mut reader = BufReader::new(&mut stream);
 
                     let mut request_line = String::new();
-                    reader.read_line(&mut request_line).await.unwrap();
+                    reader.read_line(&mut request_line).await?;
 
                     let redirect_url = request_line.split_whitespace().nth(1).unwrap();
-                    let url = Url::parse(&("http://localhost".to_string() + redirect_url)).unwrap();
+                    let url = Url::parse(&("http://localhost".to_string() + redirect_url))?;
 
                     let code_pair = url
                         .query_pairs()
@@ -220,7 +215,7 @@ impl EbayApi {
                     message.len(),
                     message
                 );
-                stream.write_all(response.as_bytes()).await.unwrap();
+                stream.write_all(response.as_bytes()).await?;
 
                 println!("Request returned the following code:\n{}\n", code.secret());
                 println!(
@@ -280,8 +275,6 @@ impl EbayApi {
 
         // dbg!(&res);
 
-        // if let Ok(token) = res {
-        // обрабатывать если вернул ошибку!!!
         let token = match res {
             Ok(x) => x,
             Err(e) => {

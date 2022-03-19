@@ -19,7 +19,7 @@ impl FagentApi {
     pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let key = "oauth_token_fagent";
         let tokens = if let Ok(Some(x)) = DB.get(&key) {
-            serde_json::from_str(std::str::from_utf8(&x).unwrap()).unwrap()
+            serde_json::from_str(std::str::from_utf8(&x)?)?
         } else {
             println!("No tokens found in the DB for Free Agent");
             Tokens::new(String::new(), 0, String::new())
@@ -29,12 +29,10 @@ impl FagentApi {
             tokens,
             auth_url: AuthUrl::new("https://api.freeagent.com/v2/approve_app".to_string())?,
             token_url: TokenUrl::new("https://api.freeagent.com/v2/token_endpoint".to_string())?,
-            client_id: ClientId::new(CONF.get::<String>("free_agent.client_id").unwrap()),
-            client_secret: ClientSecret::new(
-                CONF.get::<String>("free_agent.client_secret").unwrap(),
-            ),
+            client_id: ClientId::new(CONF.get::<String>("free_agent.client_id")?),
+            client_secret: ClientSecret::new(CONF.get::<String>("free_agent.client_secret")?),
             scope: Scope::new("fagent scope".to_string()),
-            limit: CONF.get::<String>("free_agent.limit").unwrap().to_string(),
+            limit: CONF.get::<String>("free_agent.limit")?.to_string(),
         })
     }
 
@@ -68,7 +66,7 @@ impl FagentApi {
                     match i {
                         1 => self.refresh_access_token(true).await?,
                         2 => self.auth().await?,
-                        _ => println!("Error during token exchagne cycle"),
+                        _ => return Err(LocalError::FagentTokenError)?,
                     }
                 } else {
                     println!("ebay_api.post has failed: {reply}");
@@ -148,7 +146,7 @@ impl FagentApi {
         println!("Please open this URL:\n{}\n", authorize_url.to_string());
 
         // A very naive implementation of the redirect server.
-        let listener = TcpListener::bind("127.0.0.1:8080").await.unwrap();
+        let listener = TcpListener::bind("127.0.0.1:8080").await?;
         loop {
             if let Ok((mut stream, _)) = listener.accept().await {
                 let code;
@@ -157,7 +155,7 @@ impl FagentApi {
                     let mut reader = BufReader::new(&mut stream);
 
                     let mut request_line = String::new();
-                    reader.read_line(&mut request_line).await.unwrap();
+                    reader.read_line(&mut request_line).await?;
 
                     let redirect_url = request_line.split_whitespace().nth(1).unwrap();
                     let url = Url::parse(&("http://localhost".to_string() + redirect_url)).unwrap();
@@ -191,7 +189,7 @@ impl FagentApi {
                     message.len(),
                     message
                 );
-                stream.write_all(response.as_bytes()).await.unwrap();
+                stream.write_all(response.as_bytes()).await?;
 
                 println!("Request returned the following code:\n{}\n", code.secret());
                 println!(
@@ -221,8 +219,7 @@ impl FagentApi {
                     dbg!(&tokens);
 
                     let key = "oauth_token_fagent".to_string();
-                    DB.insert(&key, serde_json::to_string(&tokens).unwrap().as_bytes())
-                        .unwrap();
+                    DB.insert(&key, serde_json::to_string(&tokens).unwrap().as_bytes())?;
                     self.tokens.access_token = token.access_token().secret().clone();
                 }
                 break;
@@ -253,8 +250,6 @@ impl FagentApi {
 
         // dbg!(&res);
 
-        // if let Ok(token) = res {
-        // обрабатывать если вернул ошибку!!!
         let token = match res {
             Ok(x) => x,
             Err(e) => {
@@ -270,8 +265,7 @@ impl FagentApi {
         );
 
         let key = "oauth_token_fagent".to_string();
-        DB.insert(&key, serde_json::to_string(&tokens).unwrap().as_bytes())
-            .unwrap();
+        DB.insert(&key, serde_json::to_string(&tokens)?.as_bytes())?;
 
         self.tokens.access_token = token.access_token().secret().clone();
         if print {

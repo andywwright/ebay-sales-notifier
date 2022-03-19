@@ -43,7 +43,9 @@ pub const EBAY_API_URL: &str = "https://api.ebay.com";
 
 #[derive(Error, Debug)]
 pub enum LocalError {
-    #[error("Error during token exchagne cycle")]
+    #[error("Fagent - Error during token exchagne cycle")]
+    FagentTokenError,
+    #[error("Ebay - Error during token exchagne cycle")]
     EbayTokenError,
     #[error("eBay server message: 'System error'")]
     EbaySystemError,
@@ -57,7 +59,7 @@ pub enum LocalError {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let debug = CONF.get::<bool>("debug").unwrap();
+    let debug = CONF.get::<bool>("debug")?;
     if debug {
         println!("Running in DEBUG mode");
 
@@ -67,10 +69,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
     println!("+");
-    let write_orders_and_send_messages = CONF.get::<bool>("send_messages").unwrap();
+    let write_orders_and_send_messages = CONF.get::<bool>("send_messages")?;
     let mut interval_5_min = time::interval(Duration::from_secs(5 * 60));
-    let shops = CONF.get::<HashSet<String>>("ebay.shops").unwrap();
-    let shops_for_feedback = CONF.get::<HashSet<String>>("shops_for_feedback").unwrap();
+    let shops = CONF.get::<HashSet<String>>("ebay.shops")?;
+    let shops_for_feedback = CONF.get::<HashSet<String>>("shops_for_feedback")?;
     let shops_for_refresh: HashSet<&String> = shops_for_feedback.union(&shops).collect();
 
     //     // spawn tasks that run in parallel
@@ -115,7 +117,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut ebay_api = EbayApi::new(shop_name).await?;
 
             let mut orders: HashSet<String> = if let Ok(Some(x)) = DB.get("orders") {
-                serde_json::from_str(std::str::from_utf8(&x).unwrap()).unwrap()
+                serde_json::from_str(std::str::from_utf8(&x)?)?
             } else {
                 HashSet::new()
             };
@@ -148,7 +150,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .clone()
                     .parse()
                     .unwrap_or_default();
-                if total > CONF.get::<f64>("ebay.sale_to_notify").unwrap() {
+                if total > CONF.get::<f64>("ebay.sale_to_notify")? {
                     let order_id = order.order_id;
 
                     if !orders.contains(&order_id) {
@@ -166,8 +168,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
             if new_orders_found && write_orders_and_send_messages {
-                DB.insert("orders", serde_json::to_string(&orders).unwrap().as_bytes())
-                    .unwrap();
+                DB.insert("orders", serde_json::to_string(&orders)?.as_bytes())?;
             }
         }
         DB.flush()?;

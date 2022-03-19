@@ -7,7 +7,7 @@ use serde::Deserialize;
 // use serde_json::Error;
 
 pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
-    let shops_for_feedback = CONF.get::<Vec<String>>("shops_for_feedback").unwrap();
+    let shops_for_feedback = CONF.get::<Vec<String>>("shops_for_feedback")?;
     let comments = [
         "❤️Fast payment. Perfect! THANKS!❤️",
         "❤️Fast payment. Excellent buyer! THANKS!❤️",
