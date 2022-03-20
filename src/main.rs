@@ -45,6 +45,8 @@ pub const EBAY_API_URL: &str = "https://api.ebay.com";
 pub enum LocalError {
     #[error("Fagent - Error during token exchagne cycle")]
     FagentTokenError,
+    #[error("FreeAgent server returned unknown error: `{0}`")]
+    FagentUnknownError(String),
     #[error("Ebay - Error during token exchagne cycle")]
     EbayTokenError,
     #[error("eBay server message: 'System error'")]
@@ -99,7 +101,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             feedback::leave().await?;
             for shop_name in &shops_for_refresh {
                 let mut ebay_api = EbayApi::new(shop_name).await?;
-                ebay_api.refresh_access_token(false).await?;
+                if let Err(e) = ebay_api.refresh_access_token(false).await {
+                    println!("{shop_name} - token refreshing has failed - {e}");
+                }
             }
         }
         i += 1;

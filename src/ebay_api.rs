@@ -267,21 +267,13 @@ impl EbayApi {
             Some(self.token_url.clone()),
         );
 
-        let res = client
+        let token = client
             .exchange_refresh_token(&RefreshToken::new(self.tokens.refresh_token.clone()))
             .add_scope(self.scope.clone())
             .request_async(async_http_client)
-            .await;
+            .await?;
 
         // dbg!(&res);
-
-        let token = match res {
-            Ok(x) => x,
-            Err(e) => {
-                println!("Token refresh has failed with following error: {}", e);
-                return Ok(());
-            }
-        };
 
         let tokens = Tokens::new(
             token.access_token().secret().clone(),
@@ -290,8 +282,7 @@ impl EbayApi {
         );
 
         let key = ["oauth_token_ebay_", &self.shop_name].concat();
-        DB.insert(&key, serde_json::to_string(&tokens).unwrap().as_bytes())
-            .unwrap();
+        DB.insert(&key, serde_json::to_string(&tokens)?.as_bytes())?;
 
         self.tokens.access_token = token.access_token().secret().clone();
         if print {

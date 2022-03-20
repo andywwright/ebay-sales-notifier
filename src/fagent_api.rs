@@ -57,19 +57,17 @@ impl FagentApi {
             eprintln!("{}", res.status());
 
             reply = res.text().await?;
-            if !reply.contains("error") {
-                break;
-            } else {
-                let bad_token = "Access token not recognised";
-                if reply.contains(bad_token) {
-                    println!("{bad_token}");
+            if reply.contains("error") {
+                let x = "Access token not recognised";
+                if reply.contains(x) {
+                    println!("{x}");
                     match i {
                         1 => self.refresh_access_token(true).await?,
                         2 => self.auth().await?,
                         _ => return Err(LocalError::FagentTokenError)?,
                     }
                 } else {
-                    println!("ebay_api.post has failed: {reply}");
+                    return Err(LocalError::FagentUnknownError(reply))?;
                 }
             }
         }
@@ -97,19 +95,17 @@ impl FagentApi {
             eprintln!("{}", res.status());
 
             reply = res.text().await?;
-            if !reply.contains("rrors") {
-                break;
-            } else {
-                let bad_token = "Access token not recognised";
-                if reply.contains(bad_token) {
-                    println!("{bad_token}");
+            if reply.contains("rrors") {
+                let x = "Access token not recognised";
+                if reply.contains(x) {
+                    println!("{x}");
                     match i {
                         1 => self.refresh_access_token(true).await?,
                         2 => self.auth().await?,
-                        _ => println!("Error during token exchagne cycle"),
+                        _ => return Err(LocalError::FagentTokenError)?,
                     }
                 } else {
-                    println!("ebay_api.post has failed: {reply}");
+                    return Err(LocalError::FagentUnknownError(reply))?;
                 }
             }
         }
@@ -242,21 +238,13 @@ impl FagentApi {
             Some(self.token_url.clone()),
         );
 
-        let res = client
+        let token = client
             .exchange_refresh_token(&RefreshToken::new(self.tokens.refresh_token.clone()))
             //   .add_scope(self.scope.clone())
             .request_async(async_http_client)
-            .await;
+            .await?;
 
         // dbg!(&res);
-
-        let token = match res {
-            Ok(x) => x,
-            Err(e) => {
-                println!("Token refresh has failed with following error: {}", e);
-                return Ok(());
-            }
-        };
 
         let tokens = Tokens::new(
             token.access_token().secret().clone(),
@@ -311,7 +299,7 @@ pub async fn create_bank_transactions() -> Result<(), Box<dyn std::error::Error>
         },
         BankTransaction {
             account: 1030344,
-            description: "Ebay fees",
+            description: "Ebay fees Mobriver",
             category: "161",
             gross_value: -33,
         },
@@ -323,7 +311,7 @@ pub async fn create_bank_transactions() -> Result<(), Box<dyn std::error::Error>
         },
         BankTransaction {
             account: 1030351,
-            description: "Ebay fees",
+            description: "Ebay fees Spasimira",
             category: "161",
             gross_value: -33,
         },
