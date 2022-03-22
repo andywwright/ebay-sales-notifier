@@ -128,15 +128,15 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
             let reply = match ebay_api.post(api_endpoint, call_name, body).await {
                 Ok(x) => x,
                 Err(e) => {
-                    println!("{shop_name} - LeaveFeedback failed: {e}");
+                    println!("{shop_name} - {user_id} - LeaveFeedback failed: {e}");
                     continue;
                 }
             };
 
             if reply.contains("Success") {
-                println!("{} - {}... OK", shop_name, user_id);
+                println!("{shop_name} - {user_id} - Feedback left");
             } else {
-                println!("{} - Error! {}", user_id, reply);
+                println!("{shop_name} - {user_id} - LeaveFeedback failed: Ok({reply})");
             }
         }
     }

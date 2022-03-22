@@ -93,7 +93,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // }
 
     let mut i = 0;
-    let mut print_timer = 0;
+    let mut ping_timer = 0;
     loop {
         interval_5_min.tick().await;
 
@@ -111,10 +111,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             i = 0
         }
 
-        print_timer += 1;
-        if print_timer == 100 {
+        ping_timer += 1;
+        if ping_timer == 100 {
             println!("+");
-            print_timer = 0;
+            ping_timer = 0;
         }
 
         for shop_name in &shops {
@@ -166,7 +166,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         if write_orders_and_send_messages {
                             let url = format!("https://api.telegram.org/bot863650897:AAE-usx-Av7yk0C1csClrS-nFLgDzVTrNmo/sendMessage?chat_id=-1001451097938&text={msg}");
-                            reqwest::get(url).await?.text().await?;
+                            if let Err(e) = reqwest::get(url).await?.text().await {
+                                println!(
+                                    "{shop_name} - sending a message to telegram has failed - {e}"
+                                );
+                            }
                         }
                     }
                 }
