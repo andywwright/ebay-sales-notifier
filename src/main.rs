@@ -64,10 +64,57 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let debug = CONF.get::<bool>("debug")?;
     if debug {
         println!("Running in DEBUG mode");
+        let api_endpoint = "/ws/api.dll";
+        let shop_name = "mobriver";
+        let mut ebay_api = EbayApi::new(&shop_name).await?;
 
-        create_bank_transactions().await?;
+        // first call
 
-        println!("Exiting... OK");
+        let call_name = "SetNotificationPreferences";
+        let body = format!(
+            r#"
+            <?xml version="1.0" encoding="utf-8"?>
+            <SetNotificationPreferencesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+              <ApplicationDeliveryPreferences>
+                <AlertEmail>mailto://andy4usa@gmail.com</AlertEmail>
+                <AlertEnable>Enable</AlertEnable>
+                <ApplicationEnable>Enable</ApplicationEnable>
+                <ApplicationURL>https://mobriver.co.uk</ApplicationURL>
+                <DeviceType>Platform</DeviceType>
+              </ApplicationDeliveryPreferences>
+              <UserDeliveryPreferenceArray>
+                <NotificationEnable>
+                  <EventType>Feedback</EventType>
+                  <EventEnable>Enable</EventEnable>
+                </NotificationEnable>
+                <NotificationEnable>
+                  <EventType>AuctionCheckoutComplete</EventType>
+                  <EventEnable>Enable</EventEnable>
+                </NotificationEnable>
+              </UserDeliveryPreferenceArray>
+            </SetNotificationPreferencesRequest>
+            "#
+        );
+        let reply = ebay_api.post(api_endpoint, call_name, body).await?;
+
+        println!("\nThe first reply: {reply}\n");
+
+        // second call
+
+        let call_name = "GetNotificationPreferences";
+        let body = format!(
+            r#"
+                <?xml version="1.0" encoding="utf-8"?>
+                <GetNotificationPreferencesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+                    <PreferenceLevel>User</PreferenceLevel>
+                </GetNotificationPreferencesRequest>
+            "#
+        );
+        let reply = ebay_api.post(api_endpoint, call_name, body).await?;
+
+        // create_bank_transactions().await?;
+
+        println!("The second reply: {reply} \nExiting... OK");
         return Ok(());
     }
     println!("+");
