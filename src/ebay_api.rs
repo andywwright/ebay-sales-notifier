@@ -1,10 +1,8 @@
 use crate::*;
 
 use axum::{
-    http::StatusCode,
-    response::IntoResponse,
     routing::{get, post},
-    Json, Router,
+    Router,
 };
 
 // static EBAY_URL_SCHEME: Lazy<String> = Lazy::new(|| CONF.get::<String>("ebay.ru_name").unwrap());
@@ -300,7 +298,9 @@ impl EbayApi {
 }
 
 pub async fn ws() -> Result<(), Box<dyn std::error::Error>> {
-    let app = Router::new().route("/messages", post(handle_ebay_message));
+    let app = Router::new()
+        .route("/", get(handle_get))
+        .route("/messages", post(handle_ebay_message));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 80));
     println!("listening on {}", addr);
@@ -363,4 +363,13 @@ pub async fn ws() -> Result<(), Box<dyn std::error::Error>> {
     // tokio::time::sleep(Duration::from_secs(100)).await;
 
     Ok(())
+}
+
+async fn handle_get() -> &'static str {
+    "200 OK"
+}
+
+async fn handle_ebay_message(payload: String) -> &'static str {
+    println!("Here's our payload: {payload}");
+    "OK"
 }

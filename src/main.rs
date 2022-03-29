@@ -61,11 +61,6 @@ pub enum LocalError {
     EbayFeedbackUnknownError(String),
 }
 
-async fn handle_ebay_message(payload: String) -> &'static str {
-    println!("Here's our payload: {payload}");
-    "OK"
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let debug = CONF.get::<bool>("debug")?;
