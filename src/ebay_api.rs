@@ -291,3 +291,71 @@ impl EbayApi {
         Ok(())
     }
 }
+
+pub async fn ws() -> Result<(), Box<dyn std::error::Error>> {
+    let app = Router::new().route("/messages", post(handle_ebay_message));
+
+    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
+    println!("listening on {}", addr);
+    tokio::spawn(axum::Server::bind(&addr).serve(app.into_make_service()));
+
+    let api_endpoint = "/ws/api.dll";
+    let shop_name = "mobriver";
+    let mut ebay_api = EbayApi::new(&shop_name).await?;
+
+    // first call
+
+    let call_name = "SetNotificationPreferences";
+    let body = format!(
+        r#"
+        <?xml version="1.0" encoding="utf-8"?>
+        <SetNotificationPreferencesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+          <ApplicationDeliveryPreferences>
+            <AlertEmail>mailto://andy4usa@gmail.com</AlertEmail>
+            <AlertEnable>Enable</AlertEnable>
+            <ApplicationEnable>Enable</ApplicationEnable>
+            <ApplicationURL>https://ws.mobriver.co.uk/messages</ApplicationURL>
+            <DeviceType>Platform</DeviceType>
+          </ApplicationDeliveryPreferences>
+          <UserDeliveryPreferenceArray>
+            <NotificationEnable>
+              <EventType>Feedback</EventType>
+              <EventEnable>Enable</EventEnable>
+            </NotificationEnable>
+            <NotificationEnable>
+              <EventType>AuctionCheckoutComplete</EventType>
+              <EventEnable>Enable</EventEnable>
+            </NotificationEnable>
+            <NotificationEnable>
+              <EventType>ItemAddedToWatchList</EventType>
+              <EventEnable>Enable</EventEnable>
+            </NotificationEnable>
+          </UserDeliveryPreferenceArray>
+        </SetNotificationPreferencesRequest>
+        "#
+    );
+    let reply = ebay_api.post(api_endpoint, call_name, body).await?;
+
+    println!("\nThe first reply: {reply}\n");
+
+    // second call
+
+    let call_name = "GetNotificationPreferences";
+    let body = format!(
+        r#"
+            <?xml version="1.0" encoding="utf-8"?>
+            <GetNotificationPreferencesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+                <PreferenceLevel>User</PreferenceLevel>
+            </GetNotificationPreferencesRequest>
+        "#
+    );
+    let reply = ebay_api.post(api_endpoint, call_name, body).await?;
+
+    // create_bank_transactions().await?;
+
+    println!("The second reply: {reply} \nExiting... OK");
+
+    // tokio::time::sleep(Duration::from_secs(100)).await;
+
+    Ok(())
+}

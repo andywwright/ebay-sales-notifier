@@ -2,6 +2,7 @@ mod ebay_api;
 mod fagent_api;
 mod feedback;
 mod models;
+use axum::extract::rejection::PayloadTooLarge;
 use ebay_api::*;
 use fagent_api::*;
 use models::*;
@@ -26,6 +27,15 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
 use tokio::time;
 use url::Url;
+
+use axum::{
+    http::StatusCode,
+    response::IntoResponse,
+    routing::{get, post},
+    Json, Router,
+};
+use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
 
 // use serde_derive::{Serialize, Deserialize};
 
@@ -59,64 +69,23 @@ pub enum LocalError {
     EbayFeedbackUnknownError(String),
 }
 
+async fn handle_ebay_message(payload: String) -> &'static str {
+    println!("Here's our payload: {payload}");
+    "OK"
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let debug = CONF.get::<bool>("debug")?;
     if debug {
         println!("Running in DEBUG mode");
-        let api_endpoint = "/ws/api.dll";
-        let shop_name = "mobriver";
-        let mut ebay_api = EbayApi::new(&shop_name).await?;
 
-        // first call
-
-        let call_name = "SetNotificationPreferences";
-        let body = format!(
-            r#"
-            <?xml version="1.0" encoding="utf-8"?>
-            <SetNotificationPreferencesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-              <ApplicationDeliveryPreferences>
-                <AlertEmail>mailto://andy4usa@gmail.com</AlertEmail>
-                <AlertEnable>Enable</AlertEnable>
-                <ApplicationEnable>Enable</ApplicationEnable>
-                <ApplicationURL>https://mobriver.co.uk</ApplicationURL>
-                <DeviceType>Platform</DeviceType>
-              </ApplicationDeliveryPreferences>
-              <UserDeliveryPreferenceArray>
-                <NotificationEnable>
-                  <EventType>Feedback</EventType>
-                  <EventEnable>Enable</EventEnable>
-                </NotificationEnable>
-                <NotificationEnable>
-                  <EventType>AuctionCheckoutComplete</EventType>
-                  <EventEnable>Enable</EventEnable>
-                </NotificationEnable>
-              </UserDeliveryPreferenceArray>
-            </SetNotificationPreferencesRequest>
-            "#
-        );
-        let reply = ebay_api.post(api_endpoint, call_name, body).await?;
-
-        println!("\nThe first reply: {reply}\n");
-
-        // second call
-
-        let call_name = "GetNotificationPreferences";
-        let body = format!(
-            r#"
-                <?xml version="1.0" encoding="utf-8"?>
-                <GetNotificationPreferencesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-                    <PreferenceLevel>User</PreferenceLevel>
-                </GetNotificationPreferencesRequest>
-            "#
-        );
-        let reply = ebay_api.post(api_endpoint, call_name, body).await?;
-
-        // create_bank_transactions().await?;
-
-        println!("The second reply: {reply} \nExiting... OK");
+        println!("Exiting... OK");
         return Ok(());
     }
+
+    ws().await?;
+
     println!("+");
     let write_orders_and_send_messages = CONF.get::<bool>("send_messages")?;
     let mut interval_5_min = time::interval(Duration::from_secs(5 * 60));
