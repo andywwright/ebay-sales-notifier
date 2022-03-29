@@ -302,7 +302,7 @@ pub async fn ws() -> Result<(), Box<dyn std::error::Error>> {
         .route("/", get(handle_get))
         .route("/messages", post(handle_ebay_message));
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 80));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
     println!("listening on {}", addr);
     tokio::spawn(axum::Server::bind(&addr).serve(app.into_make_service()));
 
