@@ -2,7 +2,6 @@ mod ebay_api;
 mod fagent_api;
 mod feedback;
 mod models;
-use axum::extract::rejection::PayloadTooLarge;
 use ebay_api::*;
 use fagent_api::*;
 use models::*;
@@ -28,13 +27,6 @@ use tokio::net::TcpListener;
 use tokio::time;
 use url::Url;
 
-use axum::{
-    http::StatusCode,
-    response::IntoResponse,
-    routing::{get, post},
-    Json, Router,
-};
-use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 
 // use serde_derive::{Serialize, Deserialize};
@@ -79,7 +71,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let debug = CONF.get::<bool>("debug")?;
     if debug {
         println!("Running in DEBUG mode");
-
+        create_bank_transactions().await?;
         println!("Exiting... OK");
         return Ok(());
     }

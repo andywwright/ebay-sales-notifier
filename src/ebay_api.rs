@@ -1,5 +1,12 @@
 use crate::*;
 
+use axum::{
+    http::StatusCode,
+    response::IntoResponse,
+    routing::{get, post},
+    Json, Router,
+};
+
 // static EBAY_URL_SCHEME: Lazy<String> = Lazy::new(|| CONF.get::<String>("ebay.ru_name").unwrap());
 
 #[derive(Default, Debug, Clone, serde_derive::Serialize, serde_derive::Deserialize)]
@@ -295,7 +302,7 @@ impl EbayApi {
 pub async fn ws() -> Result<(), Box<dyn std::error::Error>> {
     let app = Router::new().route("/messages", post(handle_ebay_message));
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 80));
     println!("listening on {}", addr);
     tokio::spawn(axum::Server::bind(&addr).serve(app.into_make_service()));
 
@@ -313,7 +320,7 @@ pub async fn ws() -> Result<(), Box<dyn std::error::Error>> {
           <ApplicationDeliveryPreferences>
             <AlertEmail>mailto://andy4usa@gmail.com</AlertEmail>
             <AlertEnable>Enable</AlertEnable>
-            <ApplicationEnable>Enable</ApplicationEnable>
+            <ApplicationEnable>Disable</ApplicationEnable>
             <ApplicationURL>https://ws.mobriver.co.uk/messages</ApplicationURL>
             <DeviceType>Platform</DeviceType>
           </ApplicationDeliveryPreferences>
@@ -351,9 +358,7 @@ pub async fn ws() -> Result<(), Box<dyn std::error::Error>> {
     );
     let reply = ebay_api.post(api_endpoint, call_name, body).await?;
 
-    // create_bank_transactions().await?;
-
-    println!("The second reply: {reply} \nExiting... OK");
+    println!("The second reply: {reply}");
 
     // tokio::time::sleep(Duration::from_secs(100)).await;
 
