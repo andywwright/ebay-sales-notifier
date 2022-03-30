@@ -320,7 +320,7 @@ pub async fn ws() -> Result<(), Box<dyn std::error::Error>> {
           <ApplicationDeliveryPreferences>
             <AlertEmail>mailto://andy4usa@gmail.com</AlertEmail>
             <AlertEnable>Enable</AlertEnable>
-            <ApplicationEnable>Disable</ApplicationEnable>
+            <ApplicationEnable>Enable</ApplicationEnable>
             <ApplicationURL>https://ws.mobriver.co.uk/messages</ApplicationURL>
             <DeviceType>Platform</DeviceType>
           </ApplicationDeliveryPreferences>
