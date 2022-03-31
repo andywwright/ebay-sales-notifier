@@ -27,9 +27,11 @@ use tokio::net::TcpListener;
 use tokio::time;
 use url::Url;
 
+use quick_xml::de::from_str;
+
 use std::net::SocketAddr;
 
-// use serde_derive::{Serialize, Deserialize};
+use serde_derive::{Deserialize, Serialize};
 
 static CONF: Lazy<Config> = Lazy::new(|| {
     let mut settings = Config::default();

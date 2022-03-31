@@ -149,6 +149,49 @@ impl EbayApi {
         Ok(reply)
     }
 
+    pub async fn post2(
+        // переделать чтобы возвращал ошибки
+        &mut self,
+        api_endpoint: &str,
+        call_name: &str,
+        body: String,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        let mut reply = String::new();
+        for i in 1..=3 {
+            let url = [EBAY_API_URL, api_endpoint].concat();
+            let client = reqwest::Client::new();
+            reply = client
+                .post(url)
+                .body(body.clone())
+                .header("Content-Type", "text/xml")
+                .header("X-EBAY-API-SITEID", "3")
+                .header("X-EBAY-API-COMPATIBILITY-LEVEL", "1225")
+                // .header("X-EBAY-API-IAF-TOKEN", &self.tokens.access_token)
+                .header("X-EBAY-API-CALL-NAME", call_name)
+                .send()
+                .await?
+                .text()
+                .await?;
+            if reply.contains("rrors") {
+                let a = "Invalid access token";
+
+                if reply.contains(a) || reply.contains("IAF token supplied is expired") {
+                    println!("{} - {}", self.shop_name, a);
+                    match i {
+                        1 => self.refresh_access_token(true).await?,
+                        2 => self.auth().await?,
+                        _ => return Err(LocalError::EbayTokenError)?,
+                    }
+                } else if reply.contains("or feedback already left") {
+                    return Err(LocalError::EbayFeedbackAlreadyLeft)?;
+                } else {
+                    return Err(LocalError::EbayFeedbackUnknownError(reply))?;
+                }
+            }
+        }
+        Ok(reply)
+    }
+
     pub async fn auth(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         // Set up the config for the Github OAuth2 process.
         let client = BasicClient::new(
@@ -311,12 +354,15 @@ pub async fn ws() -> Result<(), Box<dyn std::error::Error>> {
     let mut ebay_api = EbayApi::new(&shop_name).await?;
 
     // first call
-
+    let ebay_ana_mobriver = CONF.get::<String>("ebay_ana_mobriver")?;
     let call_name = "SetNotificationPreferences";
     let body = format!(
         r#"
         <?xml version="1.0" encoding="utf-8"?>
         <SetNotificationPreferencesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+          <RequesterCredentials>
+            <eBayAuthToken>{ebay_ana_mobriver}</eBayAuthToken>
+          </RequesterCredentials>
           <ApplicationDeliveryPreferences>
             <AlertEmail>mailto://andy4usa@gmail.com</AlertEmail>
             <AlertEnable>Enable</AlertEnable>
@@ -341,7 +387,7 @@ pub async fn ws() -> Result<(), Box<dyn std::error::Error>> {
         </SetNotificationPreferencesRequest>
         "#
     );
-    let reply = ebay_api.post(api_endpoint, call_name, body).await?;
+    let reply = ebay_api.post2(api_endpoint, call_name, body).await?;
 
     println!("\nThe first reply: {reply}\n");
 
@@ -354,12 +400,18 @@ pub async fn ws() -> Result<(), Box<dyn std::error::Error>> {
             <GetNotificationPreferencesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
                 <PreferenceLevel>User</PreferenceLevel>
             </GetNotificationPreferencesRequest>
-        "#
+        "# // r#"
+           // <?xml version="1.0" encoding="utf-8"?>
+           // <GetNotificationsUsageRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+           //     <ErrorLanguage>en_US</ErrorLanguage>
+           // </GetNotificationsUsageRequest>
+           // "#
     );
     let reply = ebay_api.post(api_endpoint, call_name, body).await?;
 
     println!("The second reply: {reply}");
 
+    // panic!("ouch!");
     // tokio::time::sleep(Duration::from_secs(100)).await;
 
     Ok(())
@@ -370,6 +422,746 @@ async fn handle_get() -> &'static str {
 }
 
 async fn handle_ebay_message(payload: String) -> &'static str {
-    println!("Here's our payload: {payload}");
+    let xml: SOAPMessage = match from_str(&payload) {
+        Ok(xml) => xml,
+        Err(e) => {
+            println!("SOAPMessage deserealisation error: {e}\n\nXML body: {payload}\n");
+            return "error 5532";
+        }
+    };
+
+    println!(
+        "Here's our payload: {}",
+        xml.envelope.body.get_item_transactions_response.item.title
+    );
     "OK"
+}
+
+// Example code that deserializes and serializes the model.
+// extern crate serde;
+// #[macro_use]
+// extern crate serde_derive;
+// extern crate serde_json;
+//
+// use generated_module::[object Object];
+//
+// fn main() {
+//     let json = r#"{"answer": 42}"#;
+//     let model: [object Object] = serde_json::from_str(&json).unwrap();
+// }
+
+extern crate serde_derive;
+
+#[derive(Serialize, Deserialize)]
+pub struct SOAPMessage {
+    #[serde(rename = "Envelope")]
+    envelope: Envelope,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Envelope {
+    #[serde(rename = "Header")]
+    header: Header,
+
+    #[serde(rename = "Body")]
+    body: Body,
+
+    #[serde(rename = "_xmlns:soapenv")]
+    xmlns_soapenv: String,
+
+    #[serde(rename = "_xmlns:xsd")]
+    xmlns_xsd: String,
+
+    #[serde(rename = "_xmlns:xsi")]
+    xmlns_xsi: String,
+
+    #[serde(rename = "__prefix")]
+    prefix: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Body {
+    #[serde(rename = "GetItemTransactionsResponse")]
+    get_item_transactions_response: GetItemTransactionsResponse,
+
+    #[serde(rename = "__prefix")]
+    prefix: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GetItemTransactionsResponse {
+    #[serde(rename = "Timestamp")]
+    timestamp: String,
+
+    #[serde(rename = "Ack")]
+    ack: String,
+
+    #[serde(rename = "CorrelationID")]
+    correlation_id: String,
+
+    #[serde(rename = "Version")]
+    version: String,
+
+    #[serde(rename = "Build")]
+    build: String,
+
+    #[serde(rename = "NotificationEventName")]
+    notification_event_name: String,
+
+    #[serde(rename = "RecipientUserID")]
+    recipient_user_id: String,
+
+    #[serde(rename = "EIASToken")]
+    eias_token: String,
+
+    #[serde(rename = "PaginationResult")]
+    pagination_result: PaginationResult,
+
+    #[serde(rename = "HasMoreTransactions")]
+    has_more_transactions: String,
+
+    #[serde(rename = "TransactionsPerPage")]
+    transactions_per_page: String,
+
+    #[serde(rename = "PageNumber")]
+    page_number: String,
+
+    #[serde(rename = "ReturnedTransactionCountActual")]
+    returned_transaction_count_actual: String,
+
+    #[serde(rename = "Item")]
+    item: Item,
+
+    #[serde(rename = "TransactionArray")]
+    transaction_array: TransactionArray,
+
+    #[serde(rename = "PayPalPreferred")]
+    pay_pal_preferred: String,
+
+    #[serde(rename = "_xmlns")]
+    xmlns: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Item {
+    #[serde(rename = "AutoPay")]
+    auto_pay: String,
+
+    #[serde(rename = "BuyItNowPrice")]
+    buy_it_now_price: BuyItNowPrice,
+
+    #[serde(rename = "Currency")]
+    currency: Currency,
+
+    #[serde(rename = "ItemID")]
+    item_id: String,
+
+    #[serde(rename = "ListingDetails")]
+    listing_details: ListingDetails,
+
+    #[serde(rename = "ListingType")]
+    listing_type: String,
+
+    #[serde(rename = "PrimaryCategory")]
+    primary_category: AryCategory,
+
+    #[serde(rename = "PrivateListing")]
+    private_listing: String,
+
+    #[serde(rename = "Quantity")]
+    quantity: String,
+
+    #[serde(rename = "SecondaryCategory")]
+    secondary_category: AryCategory,
+
+    #[serde(rename = "Seller")]
+    seller: Seller,
+
+    #[serde(rename = "SellingStatus")]
+    selling_status: SellingStatus,
+
+    #[serde(rename = "Site")]
+    site: String,
+
+    #[serde(rename = "StartPrice")]
+    start_price: BuyItNowPrice,
+
+    #[serde(rename = "Title")]
+    title: String,
+
+    #[serde(rename = "GetItFast")]
+    get_it_fast: String,
+
+    #[serde(rename = "SKU")]
+    sku: String,
+
+    #[serde(rename = "IntegratedMerchantCreditCardEnabled")]
+    integrated_merchant_credit_card_enabled: String,
+
+    #[serde(rename = "ConditionID")]
+    condition_id: String,
+
+    #[serde(rename = "ConditionDisplayName")]
+    condition_display_name: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct BuyItNowPrice {
+    #[serde(rename = "_currencyID")]
+    currency_id: Currency,
+
+    #[serde(rename = "__text")]
+    text: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ListingDetails {
+    #[serde(rename = "StartTime")]
+    start_time: String,
+
+    #[serde(rename = "EndTime")]
+    end_time: String,
+
+    #[serde(rename = "ViewItemURL")]
+    view_item_url: String,
+
+    #[serde(rename = "ViewItemURLForNaturalSearch")]
+    view_item_url_for_natural_search: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct AryCategory {
+    #[serde(rename = "CategoryID")]
+    category_id: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Seller {
+    #[serde(rename = "AboutMePage")]
+    about_me_page: String,
+
+    #[serde(rename = "EIASToken")]
+    eias_token: String,
+
+    #[serde(rename = "Email")]
+    email: String,
+
+    #[serde(rename = "FeedbackScore")]
+    feedback_score: String,
+
+    #[serde(rename = "PositiveFeedbackPercent")]
+    positive_feedback_percent: String,
+
+    #[serde(rename = "FeedbackPrivate")]
+    feedback_private: String,
+
+    #[serde(rename = "IDVerified")]
+    id_verified: String,
+
+    #[serde(rename = "eBayGoodStanding")]
+    e_bay_good_standing: String,
+
+    #[serde(rename = "NewUser")]
+    new_user: String,
+
+    #[serde(rename = "RegistrationDate")]
+    registration_date: String,
+
+    #[serde(rename = "Site")]
+    site: String,
+
+    #[serde(rename = "Status")]
+    status: String,
+
+    #[serde(rename = "UserID")]
+    user_id: String,
+
+    #[serde(rename = "UserIDChanged")]
+    user_id_changed: String,
+
+    #[serde(rename = "UserIDLastChanged")]
+    user_id_last_changed: String,
+
+    #[serde(rename = "VATStatus")]
+    vat_status: String,
+
+    #[serde(rename = "SellerInfo")]
+    seller_info: Option<SellerInfo>,
+
+    #[serde(rename = "BuyerInfo")]
+    buyer_info: Option<BuyerInfo>,
+
+    #[serde(rename = "UserAnonymized")]
+    user_anonymized: Option<String>,
+
+    #[serde(rename = "StaticAlias")]
+    static_alias: Option<String>,
+
+    #[serde(rename = "UserFirstName")]
+    user_first_name: Option<String>,
+
+    #[serde(rename = "UserLastName")]
+    user_last_name: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct BuyerInfo {
+    #[serde(rename = "ShippingAddress")]
+    shipping_address: ShippingAddress,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ShippingAddress {
+    #[serde(rename = "Name")]
+    name: String,
+
+    #[serde(rename = "Street1")]
+    street1: String,
+
+    #[serde(rename = "Street2")]
+    street2: String,
+
+    #[serde(rename = "CityName")]
+    city_name: String,
+
+    #[serde(rename = "StateOrProvince")]
+    state_or_province: String,
+
+    #[serde(rename = "Country")]
+    country: String,
+
+    #[serde(rename = "CountryName")]
+    country_name: String,
+
+    #[serde(rename = "Phone")]
+    phone: String,
+
+    #[serde(rename = "PostalCode")]
+    postal_code: String,
+
+    #[serde(rename = "AddressID")]
+    address_id: String,
+
+    #[serde(rename = "AddressOwner")]
+    address_owner: String,
+
+    #[serde(rename = "AddressUsage")]
+    address_usage: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SellerInfo {
+    #[serde(rename = "AllowPaymentEdit")]
+    allow_payment_edit: String,
+
+    #[serde(rename = "CheckoutEnabled")]
+    checkout_enabled: String,
+
+    #[serde(rename = "CIPBankAccountStored")]
+    cip_bank_account_stored: String,
+
+    #[serde(rename = "GoodStanding")]
+    good_standing: String,
+
+    #[serde(rename = "LiveAuctionAuthorized")]
+    live_auction_authorized: String,
+
+    #[serde(rename = "MerchandizingPref")]
+    merchandizing_pref: String,
+
+    #[serde(rename = "QualifiesForB2BVAT")]
+    qualifies_for_b2_bvat: String,
+
+    #[serde(rename = "StoreOwner")]
+    store_owner: String,
+
+    #[serde(rename = "StoreURL")]
+    store_url: String,
+
+    #[serde(rename = "SafePaymentExempt")]
+    safe_payment_exempt: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SellingStatus {
+    #[serde(rename = "ConvertedCurrentPrice")]
+    converted_current_price: BuyItNowPrice,
+
+    #[serde(rename = "CurrentPrice")]
+    current_price: BuyItNowPrice,
+
+    #[serde(rename = "QuantitySold")]
+    quantity_sold: String,
+
+    #[serde(rename = "ListingStatus")]
+    listing_status: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct PaginationResult {
+    #[serde(rename = "TotalNumberOfPages")]
+    total_number_of_pages: String,
+
+    #[serde(rename = "TotalNumberOfEntries")]
+    total_number_of_entries: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TransactionArray {
+    #[serde(rename = "Transaction")]
+    transaction: Transaction,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Transaction {
+    #[serde(rename = "AmountPaid")]
+    amount_paid: BuyItNowPrice,
+
+    #[serde(rename = "AdjustmentAmount")]
+    adjustment_amount: BuyItNowPrice,
+
+    #[serde(rename = "ConvertedAdjustmentAmount")]
+    converted_adjustment_amount: BuyItNowPrice,
+
+    #[serde(rename = "Buyer")]
+    buyer: Seller,
+
+    #[serde(rename = "ShippingDetails")]
+    shipping_details: ShippingDetails,
+
+    #[serde(rename = "ConvertedAmountPaid")]
+    converted_amount_paid: BuyItNowPrice,
+
+    #[serde(rename = "ConvertedTransactionPrice")]
+    converted_transaction_price: BuyItNowPrice,
+
+    #[serde(rename = "CreatedDate")]
+    created_date: String,
+
+    #[serde(rename = "DepositType")]
+    deposit_type: String,
+
+    #[serde(rename = "QuantityPurchased")]
+    quantity_purchased: String,
+
+    #[serde(rename = "Status")]
+    status: Status,
+
+    #[serde(rename = "TransactionID")]
+    transaction_id: String,
+
+    #[serde(rename = "TransactionPrice")]
+    transaction_price: BuyItNowPrice,
+
+    #[serde(rename = "BestOfferSale")]
+    best_offer_sale: String,
+
+    #[serde(rename = "eBayCollectAndRemitTax")]
+    e_bay_collect_and_remit_tax: String,
+
+    #[serde(rename = "ExternalTransaction")]
+    external_transaction: ExternalTransaction,
+
+    #[serde(rename = "ShippingServiceSelected")]
+    shipping_service_selected: ShippingServiceSelected,
+
+    #[serde(rename = "BuyerMessage")]
+    buyer_message: String,
+
+    #[serde(rename = "PaidTime")]
+    paid_time: String,
+
+    #[serde(rename = "ContainingOrder")]
+    containing_order: ContainingOrder,
+
+    #[serde(rename = "TransactionSiteID")]
+    transaction_site_id: String,
+
+    #[serde(rename = "Platform")]
+    platform: String,
+
+    #[serde(rename = "PayPalEmailAddress")]
+    pay_pal_email_address: String,
+
+    #[serde(rename = "BuyerGuaranteePrice")]
+    buyer_guarantee_price: BuyItNowPrice,
+
+    #[serde(rename = "ActualShippingCost")]
+    actual_shipping_cost: BuyItNowPrice,
+
+    #[serde(rename = "OrderLineItemID")]
+    order_line_item_id: String,
+
+    #[serde(rename = "IsMultiLegShipping")]
+    is_multi_leg_shipping: String,
+
+    #[serde(rename = "IntangibleItem")]
+    intangible_item: String,
+
+    #[serde(rename = "MonetaryDetails")]
+    monetary_details: MonetaryDetails,
+
+    #[serde(rename = "ExtendedOrderID")]
+    extended_order_id: String,
+
+    #[serde(rename = "eBayPlusTransaction")]
+    e_bay_plus_transaction: String,
+
+    #[serde(rename = "GuaranteedShipping")]
+    guaranteed_shipping: String,
+
+    #[serde(rename = "GuaranteedDelivery")]
+    guaranteed_delivery: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ContainingOrder {
+    #[serde(rename = "OrderID")]
+    order_id: String,
+
+    #[serde(rename = "OrderStatus")]
+    order_status: String,
+
+    #[serde(rename = "CancelStatus")]
+    cancel_status: String,
+
+    #[serde(rename = "ExtendedOrderID")]
+    extended_order_id: String,
+
+    #[serde(rename = "ContainseBayPlusTransaction")]
+    containse_bay_plus_transaction: String,
+
+    #[serde(rename = "OrderLineItemCount")]
+    order_line_item_count: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ExternalTransaction {
+    #[serde(rename = "ExternalTransactionID")]
+    external_transaction_id: String,
+
+    #[serde(rename = "ExternalTransactionTime")]
+    external_transaction_time: String,
+
+    #[serde(rename = "FeeOrCreditAmount")]
+    fee_or_credit_amount: BuyItNowPrice,
+
+    #[serde(rename = "PaymentOrRefundAmount")]
+    payment_or_refund_amount: BuyItNowPrice,
+
+    #[serde(rename = "ExternalTransactionStatus")]
+    external_transaction_status: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MonetaryDetails {
+    #[serde(rename = "Payments")]
+    payments: Payments,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Payments {
+    #[serde(rename = "Payment")]
+    payment: Payment,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Payment {
+    #[serde(rename = "PaymentStatus")]
+    payment_status: String,
+
+    #[serde(rename = "Payer")]
+    payer: Payee,
+
+    #[serde(rename = "Payee")]
+    payee: Payee,
+
+    #[serde(rename = "PaymentTime")]
+    payment_time: String,
+
+    #[serde(rename = "PaymentAmount")]
+    payment_amount: BuyItNowPrice,
+
+    #[serde(rename = "ReferenceID")]
+    reference_id: Payee,
+
+    #[serde(rename = "FeeOrCreditAmount")]
+    fee_or_credit_amount: BuyItNowPrice,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Payee {
+    #[serde(rename = "_type")]
+    payee_type: String,
+
+    #[serde(rename = "__text")]
+    text: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ShippingDetails {
+    #[serde(rename = "ChangePaymentInstructions")]
+    change_payment_instructions: String,
+
+    #[serde(rename = "PaymentEdited")]
+    payment_edited: String,
+
+    #[serde(rename = "SalesTax")]
+    sales_tax: SalesTax,
+
+    #[serde(rename = "ShippingServiceOptions")]
+    shipping_service_options: ShippingServiceOptions,
+
+    #[serde(rename = "ShippingType")]
+    shipping_type: String,
+
+    #[serde(rename = "SellingManagerSalesRecordNumber")]
+    selling_manager_sales_record_number: String,
+
+    #[serde(rename = "ThirdPartyCheckout")]
+    third_party_checkout: String,
+
+    #[serde(rename = "TaxTable")]
+    tax_table: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SalesTax {
+    #[serde(rename = "SalesTaxPercent")]
+    sales_tax_percent: String,
+
+    #[serde(rename = "ShippingIncludedInTax")]
+    shipping_included_in_tax: String,
+
+    #[serde(rename = "SalesTaxAmount")]
+    sales_tax_amount: BuyItNowPrice,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ShippingServiceOptions {
+    #[serde(rename = "ShippingService")]
+    shipping_service: String,
+
+    #[serde(rename = "ShippingServiceCost")]
+    shipping_service_cost: BuyItNowPrice,
+
+    #[serde(rename = "ShippingServiceAdditionalCost")]
+    shipping_service_additional_cost: BuyItNowPrice,
+
+    #[serde(rename = "ShippingServicePriority")]
+    shipping_service_priority: String,
+
+    #[serde(rename = "ExpeditedService")]
+    expedited_service: String,
+
+    #[serde(rename = "ShippingTimeMin")]
+    shipping_time_min: String,
+
+    #[serde(rename = "ShippingTimeMax")]
+    shipping_time_max: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ShippingServiceSelected {
+    #[serde(rename = "ShippingService")]
+    shipping_service: String,
+
+    #[serde(rename = "ShippingServiceCost")]
+    shipping_service_cost: BuyItNowPrice,
+
+    #[serde(rename = "ShippingPackageInfo")]
+    shipping_package_info: ShippingPackageInfo,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ShippingPackageInfo {
+    #[serde(rename = "EstimatedDeliveryTimeMin")]
+    estimated_delivery_time_min: String,
+
+    #[serde(rename = "EstimatedDeliveryTimeMax")]
+    estimated_delivery_time_max: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Status {
+    #[serde(rename = "eBayPaymentStatus")]
+    e_bay_payment_status: String,
+
+    #[serde(rename = "CheckoutStatus")]
+    checkout_status: String,
+
+    #[serde(rename = "LastTimeModified")]
+    last_time_modified: String,
+
+    #[serde(rename = "PaymentMethodUsed")]
+    payment_method_used: String,
+
+    #[serde(rename = "CompleteStatus")]
+    complete_status: String,
+
+    #[serde(rename = "BuyerSelectedShipping")]
+    buyer_selected_shipping: String,
+
+    #[serde(rename = "PaymentHoldStatus")]
+    payment_hold_status: String,
+
+    #[serde(rename = "IntegratedMerchantCreditCardEnabled")]
+    integrated_merchant_credit_card_enabled: String,
+
+    #[serde(rename = "InquiryStatus")]
+    inquiry_status: String,
+
+    #[serde(rename = "ReturnStatus")]
+    return_status: String,
+
+    #[serde(rename = "PaymentInstrument")]
+    payment_instrument: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Header {
+    #[serde(rename = "RequesterCredentials")]
+    requester_credentials: RequesterCredentials,
+
+    #[serde(rename = "__prefix")]
+    prefix: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct RequesterCredentials {
+    #[serde(rename = "NotificationSignature")]
+    notification_signature: NotificationSignature,
+
+    #[serde(rename = "_soapenv:mustUnderstand")]
+    soapenv_must_understand: String,
+
+    #[serde(rename = "_xmlns:ns")]
+    xmlns_ns: String,
+
+    #[serde(rename = "_xmlns:ebl")]
+    xmlns_ebl: String,
+
+    #[serde(rename = "__prefix")]
+    prefix: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct NotificationSignature {
+    #[serde(rename = "_xmlns:ebl")]
+    xmlns_ebl: String,
+
+    #[serde(rename = "__prefix")]
+    prefix: String,
+
+    #[serde(rename = "__text")]
+    text: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum Currency {
+    #[serde(rename = "GBP")]
+    Gbp,
+
+    #[serde(rename = "USD")]
+    Usd,
 }

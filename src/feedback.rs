@@ -1,6 +1,5 @@
 use crate::*;
 
-use quick_xml::de::from_str;
 use rand::seq::SliceRandom;
 use serde::Deserialize;
 // use sled::transaction;
@@ -47,8 +46,7 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
             Ok(xml) => xml,
             Err(e) => {
                 println!(
-                    "{} - GetItemsAwaitingFeedback XML Deserealisation error: {}\n\nXML body: {}\n",
-                    shop_name, e, reply
+                    "{shop_name} - GetItemsAwaitingFeedback XML Deserealisation error: {e}\n\nXML body: {reply}\n"
                 );
                 continue;
             }
