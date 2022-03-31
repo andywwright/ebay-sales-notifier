@@ -582,7 +582,7 @@ pub struct Item {
     get_it_fast: String,
 
     #[serde(rename = "SKU")]
-    sku: String,
+    sku: Option<String>,
 
     #[serde(rename = "IntegratedMerchantCreditCardEnabled")]
     integrated_merchant_credit_card_enabled: String,
