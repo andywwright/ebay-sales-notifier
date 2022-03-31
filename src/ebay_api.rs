@@ -668,7 +668,7 @@ pub struct Seller {
     user_id_changed: String,
 
     #[serde(rename = "UserIDLastChanged")]
-    user_id_last_changed: String,
+    user_id_last_changed: Option<String>,
 
     #[serde(rename = "VATStatus")]
     vat_status: String,
