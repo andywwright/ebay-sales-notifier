@@ -349,6 +349,8 @@ pub async fn ws() -> Result<(), Box<dyn std::error::Error>> {
     println!("listening on {}", addr);
     tokio::spawn(axum::Server::bind(&addr).serve(app.into_make_service()));
 
+    // tokio::time::sleep(Duration::from_secs(1000)).await;
+
     let api_endpoint = "/ws/api.dll";
     let shop_name = "mobriver";
     let mut ebay_api = EbayApi::new(&shop_name).await?;
@@ -422,18 +424,32 @@ async fn handle_get() -> &'static str {
 }
 
 async fn handle_ebay_message(payload: String) -> &'static str {
-    let xml: SOAPMessage = match from_str(&payload) {
+    let soap_marker = "<soapenv:Body>";
+    let header = if let Some(x) = payload.find(soap_marker) {
+        x
+    } else {
+        println!("This is not a SOAP message\n\nPayload: {payload}\n");
+        return "This is not a SOAP message";
+    };
+
+    let footer = if let Some(x) = payload.find("</soapenv:Body>") {
+        x
+    } else {
+        println!("This is not a SOAP message\n\nPayload: {payload}\n");
+        return "This is not a SOAP message";
+    };
+
+    let xml_str = &payload[(header + soap_marker.len())..footer];
+
+    let xml: GetItemTransactionsResponse = match from_str(xml_str) {
         Ok(xml) => xml,
         Err(e) => {
-            println!("SOAPMessage deserealisation error: {e}\n\nXML body: {payload}\n");
+            println!("SOAPMessage deserealisation error: {e}\n\nXML body: {xml_str}\n");
             return "error 5532";
         }
     };
 
-    println!(
-        "Here's our payload: {}",
-        xml.envelope.body.get_item_transactions_response.item.title
-    );
+    println!("New SOAP message: {}", xml.item.title);
     "OK"
 }
 
@@ -453,39 +469,12 @@ async fn handle_ebay_message(payload: String) -> &'static str {
 extern crate serde_derive;
 
 #[derive(Serialize, Deserialize)]
-pub struct SOAPMessage {
-    #[serde(rename = "Envelope")]
-    envelope: Envelope,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Envelope {
-    #[serde(rename = "Header")]
-    header: Header,
-
-    #[serde(rename = "Body")]
-    body: Body,
-
-    #[serde(rename = "_xmlns:soapenv")]
-    xmlns_soapenv: String,
-
-    #[serde(rename = "_xmlns:xsd")]
-    xmlns_xsd: String,
-
-    #[serde(rename = "_xmlns:xsi")]
-    xmlns_xsi: String,
-
-    #[serde(rename = "__prefix")]
-    prefix: String,
-}
-
-#[derive(Serialize, Deserialize)]
 pub struct Body {
     #[serde(rename = "GetItemTransactionsResponse")]
     get_item_transactions_response: GetItemTransactionsResponse,
 
     #[serde(rename = "__prefix")]
-    prefix: String,
+    prefix: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -539,7 +528,7 @@ pub struct GetItemTransactionsResponse {
     pay_pal_preferred: String,
 
     #[serde(rename = "_xmlns")]
-    xmlns: String,
+    xmlns: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -551,7 +540,7 @@ pub struct Item {
     buy_it_now_price: BuyItNowPrice,
 
     #[serde(rename = "Currency")]
-    currency: Currency,
+    currency: String,
 
     #[serde(rename = "ItemID")]
     item_id: String,
@@ -608,10 +597,10 @@ pub struct Item {
 #[derive(Serialize, Deserialize)]
 pub struct BuyItNowPrice {
     #[serde(rename = "_currencyID")]
-    currency_id: Currency,
+    currency_id: Option<String>,
 
     #[serde(rename = "__text")]
-    text: String,
+    text: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -992,10 +981,10 @@ pub struct Payment {
 #[derive(Serialize, Deserialize)]
 pub struct Payee {
     #[serde(rename = "_type")]
-    payee_type: String,
+    payee_type: Option<String>,
 
     #[serde(rename = "__text")]
-    text: String,
+    text: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -1116,52 +1105,4 @@ pub struct Status {
 
     #[serde(rename = "PaymentInstrument")]
     payment_instrument: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Header {
-    #[serde(rename = "RequesterCredentials")]
-    requester_credentials: RequesterCredentials,
-
-    #[serde(rename = "__prefix")]
-    prefix: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct RequesterCredentials {
-    #[serde(rename = "NotificationSignature")]
-    notification_signature: NotificationSignature,
-
-    #[serde(rename = "_soapenv:mustUnderstand")]
-    soapenv_must_understand: String,
-
-    #[serde(rename = "_xmlns:ns")]
-    xmlns_ns: String,
-
-    #[serde(rename = "_xmlns:ebl")]
-    xmlns_ebl: String,
-
-    #[serde(rename = "__prefix")]
-    prefix: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct NotificationSignature {
-    #[serde(rename = "_xmlns:ebl")]
-    xmlns_ebl: String,
-
-    #[serde(rename = "__prefix")]
-    prefix: String,
-
-    #[serde(rename = "__text")]
-    text: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub enum Currency {
-    #[serde(rename = "GBP")]
-    Gbp,
-
-    #[serde(rename = "USD")]
-    Usd,
 }
