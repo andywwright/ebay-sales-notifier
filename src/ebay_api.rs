@@ -449,7 +449,10 @@ async fn handle_ebay_message(payload: String) -> &'static str {
         }
     };
 
-    println!("New SOAP message: {}", xml.item.title);
+    println!(
+        "New SOAP message: £{} - {} - {}",
+        xml.item.selling_status.current_price.body, xml.recipient_user_id, xml.item.title
+    );
     "OK"
 }
 
@@ -472,9 +475,6 @@ extern crate serde_derive;
 pub struct Body {
     #[serde(rename = "GetItemTransactionsResponse")]
     get_item_transactions_response: GetItemTransactionsResponse,
-
-    #[serde(rename = "__prefix")]
-    prefix: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -527,8 +527,8 @@ pub struct GetItemTransactionsResponse {
     #[serde(rename = "PayPalPreferred")]
     pay_pal_preferred: String,
 
-    #[serde(rename = "_xmlns")]
-    xmlns: Option<String>,
+    #[serde(rename = "xmlns")]
+    xmlns: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -596,11 +596,10 @@ pub struct Item {
 
 #[derive(Serialize, Deserialize)]
 pub struct BuyItNowPrice {
-    #[serde(rename = "_currencyID")]
-    currency_id: Option<String>,
-
-    #[serde(rename = "__text")]
-    text: Option<String>,
+    #[serde(rename = "currencyID")]
+    currency_id: String,
+    #[serde(rename = "$value")]
+    pub body: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -980,11 +979,10 @@ pub struct Payment {
 
 #[derive(Serialize, Deserialize)]
 pub struct Payee {
-    #[serde(rename = "_type")]
+    #[serde(rename = "type")]
     payee_type: Option<String>,
-
-    #[serde(rename = "__text")]
-    text: Option<String>,
+    #[serde(rename = "$value")]
+    pub body: String,
 }
 
 #[derive(Serialize, Deserialize)]
