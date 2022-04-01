@@ -349,7 +349,7 @@ pub async fn ws() -> Result<(), Box<dyn std::error::Error>> {
     println!("listening on {}", addr);
     tokio::spawn(axum::Server::bind(&addr).serve(app.into_make_service()));
 
-    // tokio::time::sleep(Duration::from_secs(1000)).await;
+    // tokio::time::sleep(Duration::from_secs(1000)).await; // sleep ----------------------------------------------------------------------------------------
 
     let api_endpoint = "/ws/api.dll";
     let shop_name = "mobriver";
@@ -424,24 +424,25 @@ async fn handle_get() -> &'static str {
 }
 
 async fn handle_ebay_message(payload: String) -> &'static str {
-    let soap_marker = "<soapenv:Body>";
-    let header = if let Some(x) = payload.find(soap_marker) {
+    let soap_start_marker = "<soapenv:Body>";
+    let soap_end_marker = "</soapenv:Body>";
+    let header = if let Some(x) = payload.find(soap_start_marker) {
         x
     } else {
         println!("This is not a SOAP message\n\nPayload: {payload}\n");
         return "This is not a SOAP message";
     };
 
-    let footer = if let Some(x) = payload.find("</soapenv:Body>") {
+    let footer = if let Some(x) = payload.find(soap_end_marker) {
         x
     } else {
         println!("This is not a SOAP message\n\nPayload: {payload}\n");
         return "This is not a SOAP message";
     };
 
-    let xml_str = &payload[(header + soap_marker.len())..footer];
+    let xml_str = &payload[(header + soap_start_marker.len()..footer)];
 
-    let xml: GetItemTransactionsResponse = match from_str(xml_str) {
+    let xml: SOAPMessageBody = match from_str(xml_str) {
         Ok(xml) => xml,
         Err(e) => {
             println!("SOAPMessage deserealisation error: {e}\n\nXML body: {xml_str}\n");
@@ -449,32 +450,122 @@ async fn handle_ebay_message(payload: String) -> &'static str {
         }
     };
 
-    println!(
-        "New SOAP message: £{} - {} - {}",
-        xml.item.selling_status.current_price.body, xml.recipient_user_id, xml.item.title
-    );
+    match xml {
+        SOAPMessageBody::NewOrder(x) => {
+            println!(
+                "New Order: £{} - {} - {}",
+                x.item.selling_status.current_price.body, x.recipient_user_id, x.item.title
+            );
+        }
+        SOAPMessageBody::NewFeedback(x) => {
+            println!(
+                "New Feedback: {} - {} - {} - {}",
+                x.recipient_user_id,
+                x.feedback_detail_array.feedback_detail.role,
+                x.feedback_detail_array.feedback_detail.comment_type,
+                x.feedback_detail_array.feedback_detail.comment_text
+            );
+        }
+    };
+
     "OK"
 }
-
-// Example code that deserializes and serializes the model.
-// extern crate serde;
-// #[macro_use]
-// extern crate serde_derive;
-// extern crate serde_json;
-//
-// use generated_module::[object Object];
-//
-// fn main() {
-//     let json = r#"{"answer": 42}"#;
-//     let model: [object Object] = serde_json::from_str(&json).unwrap();
-// }
 
 extern crate serde_derive;
 
 #[derive(Serialize, Deserialize)]
-pub struct Body {
+pub enum SOAPMessageBody {
     #[serde(rename = "GetItemTransactionsResponse")]
-    get_item_transactions_response: GetItemTransactionsResponse,
+    NewOrder(GetItemTransactionsResponse),
+    #[serde(rename = "GetFeedbackResponse")]
+    NewFeedback(GetFeedbackResponse),
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GetFeedbackResponse {
+    #[serde(rename = "Timestamp")]
+    timestamp: String,
+
+    #[serde(rename = "Ack")]
+    ack: String,
+
+    #[serde(rename = "CorrelationID")]
+    correlation_id: String,
+
+    #[serde(rename = "Version")]
+    version: String,
+
+    #[serde(rename = "Build")]
+    build: String,
+
+    #[serde(rename = "NotificationEventName")]
+    notification_event_name: String,
+
+    #[serde(rename = "RecipientUserID")]
+    recipient_user_id: String,
+
+    #[serde(rename = "EIASToken")]
+    eias_token: String,
+
+    #[serde(rename = "FeedbackDetailArray")]
+    feedback_detail_array: FeedbackDetailArray,
+
+    #[serde(rename = "FeedbackDetailItemTotal")]
+    feedback_detail_item_total: String,
+
+    #[serde(rename = "FeedbackScore")]
+    feedback_score: String,
+
+    #[serde(rename = "PaginationResult")]
+    pagination_result: PaginationResult,
+
+    #[serde(rename = "EntriesPerPage")]
+    entries_per_page: String,
+
+    #[serde(rename = "PageNumber")]
+    page_number: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct FeedbackDetailArray {
+    #[serde(rename = "FeedbackDetail")]
+    feedback_detail: FeedbackDetail,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct FeedbackDetail {
+    #[serde(rename = "CommentingUser")]
+    commenting_user: String,
+
+    #[serde(rename = "FeedbackRatingStar")]
+    feedback_rating_star: String,
+
+    #[serde(rename = "CommentingUserScore")]
+    commenting_user_score: String,
+
+    #[serde(rename = "CommentText")]
+    comment_text: String,
+
+    #[serde(rename = "CommentTime")]
+    comment_time: String,
+
+    #[serde(rename = "CommentType")]
+    comment_type: String,
+
+    #[serde(rename = "ItemID")]
+    item_id: String,
+
+    #[serde(rename = "Role")]
+    role: String,
+
+    #[serde(rename = "FeedbackID")]
+    feedback_id: String,
+
+    #[serde(rename = "TransactionID")]
+    transaction_id: String,
+
+    #[serde(rename = "OrderLineItemID")]
+    order_line_item_id: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -764,7 +855,7 @@ pub struct SellerInfo {
     store_owner: String,
 
     #[serde(rename = "StoreURL")]
-    store_url: String,
+    store_url: Option<String>,
 
     #[serde(rename = "SafePaymentExempt")]
     safe_payment_exempt: String,
