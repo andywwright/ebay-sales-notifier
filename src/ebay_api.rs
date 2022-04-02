@@ -469,8 +469,9 @@ async fn handle_ebay_message(payload: String) -> &'static str {
                     HashSet::new()
                 };
                 let order_id = x.transaction_array.transaction.containing_order.order_id;
+                let item = x.item.title;
+
                 if !orders.contains(&order_id) {
-                    let item = x.item.title;
                     let msg = format!("£{total} - {shop_name} - {item}");
                     println!("{msg}");
                     orders.insert(order_id);
@@ -483,6 +484,8 @@ async fn handle_ebay_message(payload: String) -> &'static str {
                             "{shop_name} - Err68: sending a message to telegram has failed - {e}"
                         );
                     }
+                } else {
+                    println!("Order {order_id} for {item} on £{total} was already in the database when the message arrived");
                 }
             }
         }
