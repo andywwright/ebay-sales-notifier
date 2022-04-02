@@ -44,6 +44,7 @@ static CONF: Lazy<Config> = Lazy::new(|| {
 static DB: Lazy<Db> = Lazy::new(|| sled::open("db").expect("Can't open the DB"));
 
 pub const EBAY_API_URL: &str = "https://api.ebay.com";
+pub const TELEGRAM_URL: &str = "https://api.telegram.org/bot863650897:AAE-usx-Av7yk0C1csClrS-nFLgDzVTrNmo/sendMessage?chat_id=-1001451097938&text=";
 
 #[derive(Error, Debug)]
 pub enum LocalError {
@@ -169,12 +170,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if !orders.contains(&order_id) {
                         new_orders_found = true;
                         let item = &order.line_items[0].title;
-                        let msg = format!("£{total} - {shop_name} - {item}");
+                        let msg = format!("Warning! No message was sent from eBay about this order: £{total} - {shop_name} - {item}");
                         println!("{msg}");
                         orders.insert(order_id);
 
                         if write_orders_and_send_messages {
-                            let url = format!("https://api.telegram.org/bot863650897:AAE-usx-Av7yk0C1csClrS-nFLgDzVTrNmo/sendMessage?chat_id=-1001451097938&text={msg}");
+                            let url = format!("{TELEGRAM_URL}{msg}");
                             if let Err(e) = reqwest::get(url).await?.text().await {
                                 println!(
                                     "{shop_name} - sending a message to telegram has failed - {e}"

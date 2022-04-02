@@ -452,21 +452,47 @@ async fn handle_ebay_message(payload: String) -> &'static str {
 
     match xml {
         SOAPMessageBody::NewOrder(x) => {
-            println!(
-                "New Order: £{} - {} - {}",
-                x.transaction_array.transaction.amount_paid.value,
-                x.recipient_user_id,
-                x.item.title
-            );
+            let shop_name = x.recipient_user_id;
+            let total: f64 = x
+                .transaction_array
+                .transaction
+                .amount_paid
+                .value
+                .clone()
+                .parse()
+                .unwrap_or_default();
+
+            if total > CONF.get::<f64>("ebay.sale_to_notify").unwrap_or_default() {
+                let mut orders: HashSet<String> = if let Ok(Some(x)) = DB.get("orders") {
+                    serde_json::from_str(std::str::from_utf8(&x).unwrap()).unwrap()
+                } else {
+                    HashSet::new()
+                };
+                let order_id = x.transaction_array.transaction.containing_order.order_id;
+                if !orders.contains(&order_id) {
+                    let item = x.item.title;
+                    let msg = format!("£{total} - {shop_name} - {item}");
+                    println!("{msg}");
+                    orders.insert(order_id);
+                    DB.insert("orders", serde_json::to_string(&orders).unwrap().as_bytes())
+                        .unwrap();
+
+                    let url = format!("{TELEGRAM_URL}{msg}");
+                    if let Err(e) = reqwest::get(url).await.unwrap().text().await {
+                        println!(
+                            "{shop_name} - Err68: sending a message to telegram has failed - {e}"
+                        );
+                    }
+                }
+            }
         }
         SOAPMessageBody::NewFeedback(x) => {
-            if x.feedback_detail_array.feedback_detail.role == "Seller" {
+            if x.feedback_detail_array.feedback_detail.role == "Seller"
+                && x.feedback_detail_array.feedback_detail.comment_type == "Positive"
+            {
                 println!(
-                    "New Feedback: {} - {} - {} - {}",
-                    x.recipient_user_id,
-                    x.feedback_detail_array.feedback_detail.role,
-                    x.feedback_detail_array.feedback_detail.comment_type,
-                    x.feedback_detail_array.feedback_detail.comment_text
+                    "New Feedback: {} - {}",
+                    x.recipient_user_id, x.feedback_detail_array.feedback_detail.comment_text
                 );
             }
         }
