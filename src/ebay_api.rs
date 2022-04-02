@@ -340,17 +340,7 @@ impl EbayApi {
     }
 }
 
-pub async fn ws() -> Result<(), Box<dyn std::error::Error>> {
-    let app = Router::new()
-        .route("/", get(handle_get))
-        .route("/messages", post(handle_ebay_message));
-
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
-    println!("listening on {}", addr);
-    tokio::spawn(axum::Server::bind(&addr).serve(app.into_make_service()));
-
-    // tokio::time::sleep(Duration::from_secs(1000)).await; // sleep ----------------------------------------------------------------------------------------
-
+pub async fn set_notifications() -> Result<(), Box<dyn std::error::Error>> {
     let api_endpoint = "/ws/api.dll";
     let shop_name = "mobriver";
     let mut ebay_api = EbayApi::new(&shop_name).await?;
@@ -379,10 +369,6 @@ pub async fn ws() -> Result<(), Box<dyn std::error::Error>> {
             </NotificationEnable>
             <NotificationEnable>
               <EventType>AuctionCheckoutComplete</EventType>
-              <EventEnable>Enable</EventEnable>
-            </NotificationEnable>
-            <NotificationEnable>
-              <EventType>ItemAddedToWatchList</EventType>
               <EventEnable>Enable</EventEnable>
             </NotificationEnable>
           </UserDeliveryPreferenceArray>
@@ -415,6 +401,20 @@ pub async fn ws() -> Result<(), Box<dyn std::error::Error>> {
 
     // panic!("ouch!");
     // tokio::time::sleep(Duration::from_secs(100)).await;
+
+    Ok(())
+}
+
+pub async fn ws() -> Result<(), Box<dyn std::error::Error>> {
+    let app = Router::new()
+        .route("/", get(handle_get))
+        .route("/messages", post(handle_ebay_message));
+
+    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
+    println!("listening on {}", addr);
+    tokio::spawn(axum::Server::bind(&addr).serve(app.into_make_service()));
+
+    // tokio::time::sleep(Duration::from_secs(1000)).await; // sleep ----------------------------------------------------------------------------------------
 
     Ok(())
 }
@@ -454,17 +454,21 @@ async fn handle_ebay_message(payload: String) -> &'static str {
         SOAPMessageBody::NewOrder(x) => {
             println!(
                 "New Order: £{} - {} - {}",
-                x.item.selling_status.current_price.body, x.recipient_user_id, x.item.title
+                x.transaction_array.transaction.amount_paid.value,
+                x.recipient_user_id,
+                x.item.title
             );
         }
         SOAPMessageBody::NewFeedback(x) => {
-            println!(
-                "New Feedback: {} - {} - {} - {}",
-                x.recipient_user_id,
-                x.feedback_detail_array.feedback_detail.role,
-                x.feedback_detail_array.feedback_detail.comment_type,
-                x.feedback_detail_array.feedback_detail.comment_text
-            );
+            if x.feedback_detail_array.feedback_detail.role == "Seller" {
+                println!(
+                    "New Feedback: {} - {} - {} - {}",
+                    x.recipient_user_id,
+                    x.feedback_detail_array.feedback_detail.role,
+                    x.feedback_detail_array.feedback_detail.comment_type,
+                    x.feedback_detail_array.feedback_detail.comment_text
+                );
+            }
         }
     };
 
@@ -690,7 +694,7 @@ pub struct BuyItNowPrice {
     #[serde(rename = "currencyID")]
     currency_id: String,
     #[serde(rename = "$value")]
-    pub body: String,
+    pub value: String,
 }
 
 #[derive(Serialize, Deserialize)]

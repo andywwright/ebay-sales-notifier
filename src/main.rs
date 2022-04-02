@@ -73,6 +73,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if false {
+        set_notifications().await?;
+    }
+
     ws().await?;
 
     println!("+");
