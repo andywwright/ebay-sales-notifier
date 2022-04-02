@@ -342,18 +342,18 @@ impl EbayApi {
 
 pub async fn set_notifications() -> Result<(), Box<dyn std::error::Error>> {
     let api_endpoint = "/ws/api.dll";
-    let shop_name = "mobriver";
+    let shop_name = "spasimira_art";
     let mut ebay_api = EbayApi::new(&shop_name).await?;
 
     // first call
-    let ebay_ana_mobriver = CONF.get::<String>("ebay_ana_mobriver")?;
+    let ana_token = CONF.get::<String>("ebay_ana_spasimira_art")?;
     let call_name = "SetNotificationPreferences";
     let body = format!(
         r#"
         <?xml version="1.0" encoding="utf-8"?>
         <SetNotificationPreferencesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
           <RequesterCredentials>
-            <eBayAuthToken>{ebay_ana_mobriver}</eBayAuthToken>
+            <eBayAuthToken>{ana_token}</eBayAuthToken>
           </RequesterCredentials>
           <ApplicationDeliveryPreferences>
             <AlertEmail>mailto://andy4usa@gmail.com</AlertEmail>
@@ -453,6 +453,8 @@ async fn handle_ebay_message(payload: String) -> &'static str {
     match xml {
         SOAPMessageBody::NewOrder(x) => {
             let shop_name = x.recipient_user_id;
+            let order_id = x.transaction_array.transaction.containing_order.order_id;
+            let item = x.item.title;
             let total: f64 = x
                 .transaction_array
                 .transaction
@@ -461,6 +463,7 @@ async fn handle_ebay_message(payload: String) -> &'static str {
                 .clone()
                 .parse()
                 .unwrap_or_default();
+            let msg = format!("£{total} - {shop_name} - {item}");
 
             if total > CONF.get::<f64>("ebay.sale_to_notify").unwrap_or_default() {
                 let mut orders: HashSet<String> = if let Ok(Some(x)) = DB.get("orders") {
@@ -468,11 +471,8 @@ async fn handle_ebay_message(payload: String) -> &'static str {
                 } else {
                     HashSet::new()
                 };
-                let order_id = x.transaction_array.transaction.containing_order.order_id;
-                let item = x.item.title;
 
                 if !orders.contains(&order_id) {
-                    let msg = format!("£{total} - {shop_name} - {item}");
                     println!("{msg}");
                     orders.insert(order_id);
                     DB.insert("orders", serde_json::to_string(&orders).unwrap().as_bytes())
@@ -487,6 +487,8 @@ async fn handle_ebay_message(payload: String) -> &'static str {
                 } else {
                     println!("Order {order_id} for {item} on £{total} was already in the database when the message arrived");
                 }
+            } else {
+                println!("New Message: {msg}")
             }
         }
         SOAPMessageBody::NewFeedback(x) => {
