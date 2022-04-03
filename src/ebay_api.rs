@@ -494,12 +494,14 @@ async fn handle_ebay_message(payload: String) -> &'static str {
         SOAPMessageBody::NewFeedback(x) => {
             if x.feedback_detail_array.feedback_detail.role == "Seller"
                 && x.feedback_detail_array.feedback_detail.comment_type == "Positive"
-            {
-                println!(
-                    "New Feedback: {} - {}",
-                    x.recipient_user_id, x.feedback_detail_array.feedback_detail.comment_text
-                );
-            }
+            {}
+            println!(
+                "New Feedback: {} - {} - {} - {}",
+                x.recipient_user_id,
+                x.feedback_detail_array.feedback_detail.role,
+                x.feedback_detail_array.feedback_detail.commenting_user,
+                x.feedback_detail_array.feedback_detail.comment_text
+            );
         }
     };
 
