@@ -72,7 +72,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if false {
             create_bank_transactions().await?;
         }
-        if true {
+        if false {
             set_notifications().await?;
         }
         println!("Exiting... OK");

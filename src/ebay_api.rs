@@ -341,12 +341,14 @@ impl EbayApi {
 }
 
 pub async fn set_notifications() -> Result<(), Box<dyn std::error::Error>> {
+    let shop_name = "mobriver";
+
     let api_endpoint = "/ws/api.dll";
-    let shop_name = "spasimira_art";
+    let db_key = format!("ebay_ana_{shop_name}");
     let mut ebay_api = EbayApi::new(&shop_name).await?;
 
     // first call
-    let ana_token = CONF.get::<String>("ebay_ana_spasimira_art")?;
+    let ana_token = CONF.get::<String>(&db_key)?;
     let call_name = "SetNotificationPreferences";
     let body = format!(
         r#"
@@ -364,7 +366,7 @@ pub async fn set_notifications() -> Result<(), Box<dyn std::error::Error>> {
           </ApplicationDeliveryPreferences>
           <UserDeliveryPreferenceArray>
             <NotificationEnable>
-              <EventType>Feedback</EventType>
+              <EventType>FeedbackReceived</EventType>
               <EventEnable>Enable</EventEnable>
             </NotificationEnable>
             <NotificationEnable>
@@ -829,19 +831,19 @@ pub struct BuyerInfo {
 #[derive(Serialize, Deserialize)]
 pub struct ShippingAddress {
     #[serde(rename = "Name")]
-    name: String,
+    name: Option<String>,
 
     #[serde(rename = "Street1")]
-    street1: String,
+    street1: Option<String>,
 
     #[serde(rename = "Street2")]
-    street2: String,
+    street2: Option<String>,
 
     #[serde(rename = "CityName")]
     city_name: String,
 
     #[serde(rename = "StateOrProvince")]
-    state_or_province: String,
+    state_or_province: Option<String>,
 
     #[serde(rename = "Country")]
     country: String,
