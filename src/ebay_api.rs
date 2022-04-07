@@ -489,8 +489,6 @@ async fn handle_ebay_message(payload: String) -> &'static str {
                 } else {
                     println!("Order {order_id} for {item} on £{total} was already in the database when the message arrived");
                 }
-            } else {
-                println!("New Message: {msg}")
             }
         }
         SOAPMessageBody::NewFeedback(x) => {
@@ -840,7 +838,7 @@ pub struct ShippingAddress {
     street2: Option<String>,
 
     #[serde(rename = "CityName")]
-    city_name: String,
+    city_name: Option<String>,
 
     #[serde(rename = "StateOrProvince")]
     state_or_province: Option<String>,
@@ -852,7 +850,7 @@ pub struct ShippingAddress {
     country_name: String,
 
     #[serde(rename = "Phone")]
-    phone: String,
+    phone: Option<String>,
 
     #[serde(rename = "PostalCode")]
     postal_code: String,
