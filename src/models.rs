@@ -1105,3 +1105,10 @@ pub struct Metadata {
 pub struct Filters {
     pub status: String,
 }
+
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct Feedback {
+    pub item_id: String,
+    pub transaction_id: String,
+    pub user_id: String,
+}

@@ -7,10 +7,6 @@ use serde::Deserialize;
 
 pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
     let shops_for_feedback = CONF.get::<Vec<String>>("shops_for_feedback")?;
-    let comments = [
-        "❤️Fast payment. Perfect! THANKS!❤️",
-        "❤️Fast payment. Excellent buyer! THANKS!❤️",
-    ];
 
     for shop_name in shops_for_feedback {
         let api_endpoint = "/ws/api.dll";
@@ -74,7 +70,7 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         };
 
-        let all_feedback: Vec<Transaction> = transaction_array
+        let all_feedback: Vec<AwaitingFeedback> = transaction_array
             .transaction
             .into_iter()
             .filter(|feedback| feedback.feedback_received.is_some() && feedback.buyer.is_some())
@@ -84,7 +80,7 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        let positive: Vec<Transaction> = all_feedback
+        let positive: Vec<AwaitingFeedback> = all_feedback
             .into_iter()
             .filter(|feedback| {
                 if let Some(x) = &feedback.feedback_received {
@@ -99,12 +95,34 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        let call_name = "LeaveFeedback";
+        for awaiting_feedback in positive {
+            let user_id = awaiting_feedback.buyer.unwrap_or_default().user_id;
+            let feedback = Feedback {
+                item_id: awaiting_feedback.item.item_id,
+                transaction_id: awaiting_feedback.transaction_id,
+                user_id: user_id,
+            };
 
-        for feedback in positive {
-            let user_id = feedback.buyer.unwrap_or_default().user_id;
-            let body = format!(
-                r#"
+            leave_feedback(&shop_name, feedback, api_endpoint).await?;
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn leave_feedback(
+    shop_name: &str,
+    feedback: Feedback,
+    api_endpoint: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut ebay_api = EbayApi::new(&shop_name).await?;
+    let call_name = "LeaveFeedback";
+    let comments = [
+        "❤️Fast payment. Perfect! THANKS!❤️",
+        "❤️Fast payment. Excellent buyer! THANKS!❤️",
+    ];
+    let body = format!(
+        r#"
             <?xml version="1.0" encoding="utf-8"?>
             <{}Request xmlns="urn:ebay:apis:eBLBaseComponents">
               <ItemID>{}</ItemID>
@@ -114,31 +132,32 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
               <CommentType>Positive</CommentType>
             </LeaveFeedbackRequest>
             "#,
-                call_name,
-                feedback.item.item_id,
-                feedback.transaction_id,
-                comments
-                    .choose(&mut rand::thread_rng())
-                    .unwrap_or_else(|| &"Thanks!"),
-                user_id,
-            );
-
-            let reply = match ebay_api.post(api_endpoint, call_name, body).await {
-                Ok(x) => x,
-                Err(e) => {
-                    println!("{shop_name} - {user_id} - LeaveFeedback failed: {e}");
-                    continue;
-                }
-            };
-
+        call_name,
+        feedback.item_id,
+        feedback.transaction_id,
+        comments
+            .choose(&mut rand::thread_rng())
+            .unwrap_or_else(|| &"Thanks!"),
+        feedback.user_id,
+    );
+    match ebay_api.post(api_endpoint, call_name, body).await {
+        Ok(reply) => {
             if reply.contains("Success") {
-                println!("{shop_name} - {user_id} - Feedback left");
+                println!("{shop_name} - {} - Feedback left", feedback.user_id);
             } else {
-                println!("{shop_name} - {user_id} - LeaveFeedback failed: Ok({reply})");
+                println!(
+                    "{shop_name} - {} - LeaveFeedback failed: Ok({reply})",
+                    feedback.user_id
+                );
             }
         }
-    }
-
+        Err(e) => {
+            println!(
+                "{shop_name} - {} - LeaveFeedback failed: {e}",
+                feedback.user_id
+            );
+        }
+    };
     Ok(())
 }
 
@@ -183,11 +202,11 @@ pub struct PaginationResult {
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct TransactionArray {
     #[serde(rename = "Transaction")]
-    transaction: Vec<Transaction>,
+    transaction: Vec<AwaitingFeedback>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
-pub struct Transaction {
+pub struct AwaitingFeedback {
     #[serde(rename = "Item")]
     item: Item,
 
