@@ -132,7 +132,10 @@ impl EbayApi {
             if reply.contains("rrors") {
                 let a = "Invalid access token";
 
-                if reply.contains(a) || reply.contains("IAF token supplied is expired") {
+                if reply.contains(a)
+                    || reply.contains("IAF token supplied is expired")
+                    || reply.contains("Invalid IAF token")
+                {
                     println!("{} - {}", self.shop_name, a);
                     match i {
                         1 => self.refresh_access_token(true).await?,

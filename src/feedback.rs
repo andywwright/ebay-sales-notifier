@@ -146,14 +146,14 @@ pub async fn leave_feedback(
                 println!("{shop_name} - {} - Feedback left", feedback.user_id);
             } else {
                 println!(
-                    "{shop_name} - {} - LeaveFeedback failed: Ok({reply})",
+                    "{shop_name} - {} - LeaveFeedback has not returned Success: {reply}",
                     feedback.user_id
                 );
             }
         }
         Err(e) => {
             println!(
-                "{shop_name} - {} - LeaveFeedback failed: {e}",
+                "{shop_name} - {} - LeaveFeedback returned Err: {e}",
                 feedback.user_id
             );
         }
