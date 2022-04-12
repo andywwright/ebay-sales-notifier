@@ -48,7 +48,7 @@ impl EbayApi {
             serde_json::from_str(std::str::from_utf8(&x)?)?
         } else {
             println!("No tokens found in the DB for {}", shop_name);
-            Tokens::new(String::new(), 0, String::new())
+            Tokens::new("abc".to_string(), 0, "def".to_string())
         };
 
         // let tokens = Tokens::new(String::new(), 0, String::new());
@@ -87,6 +87,8 @@ impl EbayApi {
                 .await?
                 .text()
                 .await?;
+
+            // println!("777777777777{reply}");
             if reply.contains("errorId") {
                 let x = "Invalid access token";
                 if reply.contains(x) {

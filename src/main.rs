@@ -66,6 +66,11 @@ pub enum LocalError {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut ebay_api = EbayApi::new("bestnfc").await?;
+    ebay_api.auth().await?;
+    DB.flush()?;
+    return Ok(());
+
     let debug = CONF.get::<bool>("debug")?;
     if debug {
         println!("Running in DEBUG mode");
