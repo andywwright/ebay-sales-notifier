@@ -94,7 +94,6 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
         if positive.is_empty() {
             continue;
         }
-
         for awaiting_feedback in positive {
             let user_id = awaiting_feedback.buyer.unwrap_or_default().user_id;
             let feedback = Feedback {
@@ -102,7 +101,7 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
                 transaction_id: awaiting_feedback.transaction_id,
                 user_id: user_id,
             };
-
+            print!("Awaiting Feedback found: ");
             leave_feedback(&shop_name, feedback, api_endpoint).await?;
         }
     }

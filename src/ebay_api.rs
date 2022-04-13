@@ -1010,7 +1010,7 @@ pub struct Transaction {
     pay_pal_email_address: String,
 
     #[serde(rename = "BuyerGuaranteePrice")]
-    buyer_guarantee_price: BuyItNowPrice,
+    buyer_guarantee_price: Option<BuyItNowPrice>,
 
     #[serde(rename = "ActualShippingCost")]
     actual_shipping_cost: BuyItNowPrice,
