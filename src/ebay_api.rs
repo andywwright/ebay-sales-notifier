@@ -154,7 +154,7 @@ impl EbayApi {
         Ok(reply)
     }
 
-    pub async fn post2(
+    pub async fn _post2(
         // переделать чтобы возвращал ошибки
         &mut self,
         api_endpoint: &str,
@@ -382,7 +382,7 @@ pub async fn set_notifications() -> Result<(), Box<dyn std::error::Error>> {
         </SetNotificationPreferencesRequest>
         "#
     );
-    let reply = ebay_api.post2(api_endpoint, call_name, body).await?;
+    let reply = ebay_api.post(api_endpoint, call_name, body).await?;
 
     println!("\nThe first reply: {reply}\n");
 

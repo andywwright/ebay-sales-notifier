@@ -58,7 +58,7 @@ pub enum LocalError {
     EbaySystemError,
     #[error("eBay server returned unknown error: `{0}`")]
     EbayUnknownError(String),
-    #[error("Invalid item number or invalid transaction or feedback already left")]
+    #[error("Feedback already left")]
     EbayFeedbackAlreadyLeft,
     #[error("eBay server returned unknown error: `{0}`")]
     EbayFeedbackUnknownError(String),
@@ -88,7 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("+");
     let write_orders_and_send_messages = CONF.get::<bool>("send_messages")?;
-    let mut interval_5_min = time::interval(Duration::from_secs(5 * 60));
+    let mut interval_100_min = time::interval(Duration::from_secs(100 * 60));
     let shops = CONF.get::<HashSet<String>>("ebay.shops")?;
     let shops_for_feedback = CONF.get::<HashSet<String>>("shops_for_feedback")?;
     let shops_for_refresh: HashSet<&String> = shops_for_feedback.union(&shops).collect();
@@ -108,30 +108,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //     task.await.unwrap();
     // }
 
-    let mut i = 0;
     let mut ping_timer = 0;
     loop {
-        interval_5_min.tick().await;
+        interval_100_min.tick().await;
 
-        if i == 0 {
-            feedback::leave().await?;
-            for shop_name in &shops_for_refresh {
-                let mut ebay_api = EbayApi::new(shop_name).await?;
-                if let Err(e) = ebay_api.refresh_access_token(false).await {
-                    println!("{shop_name} - token refreshing has failed - {e}");
-                }
-            }
-        }
-        i += 1;
-        if i == 20 {
-            i = 0
-        }
-
-        ping_timer += 1;
-        if ping_timer == 100 {
+        if ping_timer == 5 {
             println!("+");
             ping_timer = 0;
         }
+        ping_timer += 1;
+
+        for shop_name in &shops_for_refresh {
+            let mut ebay_api = EbayApi::new(shop_name).await?;
+            if let Err(e) = ebay_api.refresh_access_token(false).await {
+                println!("{shop_name} - token refreshing has failed - {e}");
+            }
+        }
+
+        feedback::leave().await?;
 
         for shop_name in &shops {
             let mut ebay_api = EbayApi::new(shop_name).await?;
