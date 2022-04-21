@@ -154,49 +154,6 @@ impl EbayApi {
         Ok(reply)
     }
 
-    pub async fn _post2(
-        // переделать чтобы возвращал ошибки
-        &mut self,
-        api_endpoint: &str,
-        call_name: &str,
-        body: String,
-    ) -> Result<String, Box<dyn std::error::Error>> {
-        let mut reply = String::new();
-        for i in 1..=3 {
-            let url = [EBAY_API_URL, api_endpoint].concat();
-            let client = reqwest::Client::new();
-            reply = client
-                .post(url)
-                .body(body.clone())
-                .header("Content-Type", "text/xml")
-                .header("X-EBAY-API-SITEID", "3")
-                .header("X-EBAY-API-COMPATIBILITY-LEVEL", "1225")
-                // .header("X-EBAY-API-IAF-TOKEN", &self.tokens.access_token)
-                .header("X-EBAY-API-CALL-NAME", call_name)
-                .send()
-                .await?
-                .text()
-                .await?;
-            if reply.contains("rrors") {
-                let a = "Invalid access token";
-
-                if reply.contains(a) || reply.contains("IAF token supplied is expired") {
-                    println!("{} - {}", self.shop_name, a);
-                    match i {
-                        1 => self.refresh_access_token(true).await?,
-                        2 => self.auth().await?,
-                        _ => return Err(LocalError::EbayTokenError)?,
-                    }
-                } else if reply.contains("or feedback already left") {
-                    return Err(LocalError::EbayFeedbackAlreadyLeft)?;
-                } else {
-                    return Err(LocalError::EbayFeedbackUnknownError(reply))?;
-                }
-            }
-        }
-        Ok(reply)
-    }
-
     pub async fn auth(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         // Set up the config for the Github OAuth2 process.
         let client = BasicClient::new(
@@ -346,6 +303,7 @@ impl EbayApi {
 }
 
 pub async fn set_notifications() -> Result<(), Box<dyn std::error::Error>> {
+    // возможно не работает если не убрать X-EBAY-API-IAF-TOKEN header из post
     let shop_name = "mobriver";
 
     let api_endpoint = "/ws/api.dll";
@@ -717,7 +675,7 @@ pub struct Item {
     title: String,
 
     #[serde(rename = "GetItFast")]
-    get_it_fast: String,
+    get_it_fast: Option<String>,
 
     #[serde(rename = "SKU")]
     sku: Option<String>,
