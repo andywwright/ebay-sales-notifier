@@ -932,7 +932,7 @@ pub struct Transaction {
     status: Status,
 
     #[serde(rename = "TransactionID")]
-    transaction_id: String,
+    transaction_id: Option<String>,
 
     #[serde(rename = "TransactionPrice")]
     transaction_price: BuyItNowPrice,
