@@ -14,20 +14,20 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
         let mut ebay_api = EbayApi::new(&shop_name).await?;
 
         let limit = 10;
+        let page_number = 1;
         let call_name = "GetItemsAwaitingFeedback";
 
         let body = format!(
             r#"
         <?xml version="1.0" encoding="utf-8"?>
-        <{}Request xmlns="urn:ebay:apis:eBLBaseComponents">
+        <{call_name}Request xmlns="urn:ebay:apis:eBLBaseComponents">
           <Pagination>
-            <EntriesPerPage>{}</EntriesPerPage>
-            <PageNumber>{}</PageNumber>
+            <EntriesPerPage>{limit}</EntriesPerPage>
+            <PageNumber>{page_number}</PageNumber>
           </Pagination>
         <Sort>FeedbackReceivedDescending</Sort>
         </GetItemsAwaitingFeedbackRequest>
-        "#,
-            call_name, limit, 1
+        "#
         );
 
         let reply = match ebay_api.post(api_endpoint, call_name, body).await {
@@ -77,6 +77,7 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
             .collect();
 
         if all_feedback.is_empty() {
+            println!("{shop_name} - No awaiting feedback found as all_feedback is empty");
             continue;
         }
 

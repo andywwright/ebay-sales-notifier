@@ -144,8 +144,8 @@ impl EbayApi {
                         2 => self.auth().await?,
                         _ => return Err(LocalError::EbayTokenError)?,
                     }
-                } else if reply.contains("or feedback already left") {
-                    return Err(LocalError::EbayFeedbackAlreadyLeft)?;
+                // } else if reply.contains("or feedback already left") {
+                //     return Err(LocalError::EbayFeedbackAlreadyLeft)?;
                 } else {
                     return Err(LocalError::EbayFeedbackUnknownError(reply))?;
                 }
