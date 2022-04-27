@@ -93,6 +93,7 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
             .collect();
 
         if positive.is_empty() {
+            println!("{shop_name} - No awaiting feedback found as positive is empty");
             continue;
         }
         for awaiting_feedback in positive {
