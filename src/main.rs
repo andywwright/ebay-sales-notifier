@@ -74,7 +74,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let debug = CONF.get::<bool>("debug")?;
     if debug {
         println!("Running in DEBUG mode");
-        if false {
+        if true {
             create_bank_transactions().await?;
         }
         if false {
