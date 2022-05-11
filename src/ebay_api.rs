@@ -463,6 +463,7 @@ async fn handle_ebay_message(payload: String) -> &'static str {
                     item_id: x.feedback_detail_array.feedback_detail.item_id,
                     transaction_id: x.feedback_detail_array.feedback_detail.transaction_id,
                     user_id: x.feedback_detail_array.feedback_detail.commenting_user,
+                    order_line_item_id: x.feedback_detail_array.feedback_detail.order_line_item_id,
                 };
                 if let Err(e) =
                     feedback::leave_feedback(&x.recipient_user_id, feedback, api_endpoint).await
@@ -827,10 +828,10 @@ pub struct ShippingAddress {
     address_id: Option<String>,
 
     #[serde(rename = "AddressOwner")]
-    address_owner: String,
+    address_owner: Option<String>,
 
     #[serde(rename = "AddressUsage")]
-    address_usage: String,
+    address_usage: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]

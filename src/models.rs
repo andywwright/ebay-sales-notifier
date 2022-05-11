@@ -1111,4 +1111,5 @@ pub struct Feedback {
     pub item_id: String,
     pub transaction_id: String,
     pub user_id: String,
+    pub order_line_item_id: String,
 }

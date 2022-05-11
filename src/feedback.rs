@@ -102,6 +102,7 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
                 item_id: awaiting_feedback.item.item_id,
                 transaction_id: awaiting_feedback.transaction_id,
                 user_id: user_id,
+                order_line_item_id: awaiting_feedback.order_line_item_id,
             };
             print!("Awaiting Feedback found: ");
             leave_feedback(&shop_name, feedback, api_endpoint).await?;
@@ -127,7 +128,7 @@ pub async fn leave_feedback(
             <?xml version="1.0" encoding="utf-8"?>
             <{}Request xmlns="urn:ebay:apis:eBLBaseComponents">
               <ItemID>{}</ItemID>
-              <TransactionID>{}</TransactionID>
+              <OrderLineItemID>{}</OrderLineItemID>
               <CommentText>{}</CommentText>
               <TargetUser>{}</TargetUser>
               <CommentType>Positive</CommentType>
@@ -135,7 +136,7 @@ pub async fn leave_feedback(
             "#,
         call_name,
         feedback.item_id,
-        feedback.transaction_id,
+        feedback.order_line_item_id,
         comments
             .choose(&mut rand::thread_rng())
             .unwrap_or_else(|| &"Thanks!"),
