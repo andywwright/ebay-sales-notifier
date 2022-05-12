@@ -117,6 +117,7 @@ pub async fn leave_feedback(
     feedback: Feedback,
     api_endpoint: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    println!("{:?}", feedback);
     let mut ebay_api = EbayApi::new(&shop_name).await?;
     let call_name = "LeaveFeedback";
     let comments = [
@@ -128,7 +129,7 @@ pub async fn leave_feedback(
             <?xml version="1.0" encoding="utf-8"?>
             <{}Request xmlns="urn:ebay:apis:eBLBaseComponents">
               <ItemID>{}</ItemID>
-              <OrderLineItemID>{}</OrderLineItemID>
+              <TransactionID>{}</TransactionID>
               <CommentText>{}</CommentText>
               <TargetUser>{}</TargetUser>
               <CommentType>Positive</CommentType>
@@ -136,7 +137,7 @@ pub async fn leave_feedback(
             "#,
         call_name,
         feedback.item_id,
-        feedback.order_line_item_id,
+        feedback.transaction_id,
         comments
             .choose(&mut rand::thread_rng())
             .unwrap_or_else(|| &"Thanks!"),
