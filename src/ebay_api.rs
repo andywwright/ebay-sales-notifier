@@ -43,11 +43,7 @@ pub struct EbayApi {
 
 impl EbayApi {
     pub async fn new(shop_name: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let key = if shop_name == "bestnfc" {
-            ["oauth_token_ebay_", "best_nfc"].concat()
-        } else {
-            ["oauth_token_ebay_", shop_name].concat()
-        };
+        let key = ["oauth_token_ebay_", shop_name].concat();
         let tokens = if let Ok(Some(x)) = DB.get(&key) {
             serde_json::from_str(std::str::from_utf8(&x)?)?
         } else {
