@@ -117,7 +117,6 @@ pub async fn leave_feedback(
     feedback: Feedback,
     api_endpoint: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!("{:?}", feedback);
     let mut ebay_api = EbayApi::new(&shop_name).await?;
     let call_name = "LeaveFeedback";
     let comments = [
