@@ -5,7 +5,7 @@ use serde::Deserialize;
 // use sled::transaction;
 // use serde_json::Error;
 
-pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn check_for_awaiting_feedback() -> Result<(), Box<dyn std::error::Error>> {
     let shops_for_feedback = CONF.get::<Vec<String>>("shops_for_feedback")?;
 
     for shop_name in shops_for_feedback {
@@ -54,6 +54,8 @@ pub async fn leave() -> Result<(), Box<dyn std::error::Error>> {
             println!("{shop_name} - No awaiting feedback found as items_awaiting_feedback is null");
             continue;
         };
+
+        println!("=====\n\n\n{:?}", items_awaiting_feedback);
 
         // let i = items_awaiting_feedback
         //     .pagination_result

@@ -125,7 +125,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        feedback::leave().await?;
+        feedback::check_for_awaiting_feedback().await?;
 
         for shop_name in &shops {
             let mut ebay_api = EbayApi::new(shop_name).await?;
