@@ -109,7 +109,6 @@ impl EbayApi {
     }
 
     pub async fn post(
-        // переделать чтобы возвращал ошибки
         &mut self,
         api_endpoint: &str,
         call_name: &str,
@@ -131,7 +130,7 @@ impl EbayApi {
                 .await?
                 .text()
                 .await?;
-            if reply.contains("rrors") {
+            if !reply.contains("<Ack>Success") {
                 let a = "Invalid access token";
 
                 if reply.contains(a)
@@ -450,7 +449,7 @@ async fn handle_ebay_message(payload: String) -> &'static str {
                         );
                     }
                 } else {
-                    println!("Order {order_id} for {item} on £{total} was already in the database when the message arrived");
+                    println!("Warning! This order was already in the database when the message arrived: {order_id} - {msg}");
                 }
             }
         }
@@ -1068,7 +1067,7 @@ pub struct Payment {
     payment_amount: BuyItNowPrice,
 
     #[serde(rename = "ReferenceID")]
-    reference_id: Payee,
+    reference_id: Option<Payee>,
 
     #[serde(rename = "FeeOrCreditAmount")]
     fee_or_credit_amount: BuyItNowPrice,

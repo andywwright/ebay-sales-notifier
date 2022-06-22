@@ -144,7 +144,7 @@ pub async fn leave_feedback(
     );
     match ebay_api.post(api_endpoint, call_name, body).await {
         Ok(reply) => {
-            if reply.contains("Success") {
+            if reply.contains("Success") { //убрать когда переделаю апстрим на <Ack>Success
                 println!("{shop_name} - {} - Feedback left", feedback.user_id);
             } else {
                 println!(
